@@ -1,0 +1,216 @@
+// Decompiled with JetBrains decompiler
+// Type: Verse.MapGenerator
+// Assembly: Assembly-CSharp, Version=1.5.9214.33606, Culture=neutral, PublicKeyToken=null
+// MVID: 630E2863-BC9A-4A34-93F2-EFF01E3A9556
+// Assembly location: D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll
+
+using RimWorld;
+using RimWorld.Planet;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+#nullable disable
+namespace Verse
+{
+  public static class MapGenerator
+  {
+    public static Map mapBeingGenerated;
+    private static Dictionary<string, object> data = new Dictionary<string, object>();
+    private static IntVec3 playerStartSpotInt = IntVec3.Invalid;
+    public static List<IntVec3> rootsToUnfog = new List<IntVec3>();
+    private static List<GenStepWithParams> tmpGenSteps = new List<GenStepWithParams>();
+    public const string ElevationName = "Elevation";
+    public const string FertilityName = "Fertility";
+    public const string CavesName = "Caves";
+    public const string RectOfInterestName = "RectOfInterest";
+    public const string UsedRectsName = "UsedRects";
+    public const string RectOfInterestTurretsGenStepsCount = "RectOfInterestTurretsGenStepsCount";
+
+    public static MapGenFloatGrid Elevation => MapGenerator.FloatGridNamed(nameof (Elevation));
+
+    public static MapGenFloatGrid Fertility => MapGenerator.FloatGridNamed(nameof (Fertility));
+
+    public static MapGenFloatGrid Caves => MapGenerator.FloatGridNamed(nameof (Caves));
+
+    public static IntVec3 PlayerStartSpot
+    {
+      get
+      {
+        if (MapGenerator.playerStartSpotInt.IsValid)
+          return MapGenerator.playerStartSpotInt;
+        Log.Error("Accessing player start spot before setting it.");
+        return IntVec3.Zero;
+      }
+      set => MapGenerator.playerStartSpotInt = value;
+    }
+
+    public static Map GenerateMap(
+      IntVec3 mapSize,
+      MapParent parent,
+      MapGeneratorDef mapGenerator,
+      IEnumerable<GenStepWithParams> extraGenStepDefs = null,
+      Action<Map> extraInitBeforeContentGen = null,
+      bool isPocketMap = false)
+    {
+      ProgramState programState = Current.ProgramState;
+      Current.ProgramState = ProgramState.MapInitializing;
+      MapGenerator.playerStartSpotInt = IntVec3.Invalid;
+      MapGenerator.rootsToUnfog.Clear();
+      MapGenerator.data.Clear();
+      MapGenerator.mapBeingGenerated = (Map) null;
+      DeepProfiler.Start("InitNewGeneratedMap");
+      Rand.PushState();
+      // ISSUE: explicit non-virtual call
+      int seed = Gen.HashCombineInt(Find.World.info.Seed, parent != null ? __nonvirtual (parent.Tile) : 0);
+      if (isPocketMap)
+        seed = Rand.Int;
+      Rand.Seed = seed;
+      try
+      {
+        if (parent != null && parent.HasMap)
+        {
+          Log.Error("Tried to generate a new map and set " + (object) parent + " as its parent, but this world object already has a map. One world object can't have more than 1 map.");
+          parent = (MapParent) null;
+        }
+        DeepProfiler.Start("Set up map");
+        Map map = new Map();
+        map.uniqueID = Find.UniqueIDsManager.GetNextMapID();
+        map.generationTick = GenTicks.TicksGame;
+        MapGenerator.mapBeingGenerated = map;
+        map.info.Size = mapSize;
+        map.info.parent = parent;
+        if (mapGenerator == null)
+        {
+          Log.Error("Attempted to generate map without generator; falling back on encounter map");
+          mapGenerator = MapGeneratorDefOf.Encounter;
+        }
+        map.generatorDef = mapGenerator;
+        map.info.disableSunShadows = mapGenerator.disableShadows;
+        if (isPocketMap)
+        {
+          map.info.isPocketMap = true;
+          map.pocketTileInfo = new Tile()
+          {
+            biome = mapGenerator.pocketMapProperties.biome
+          };
+        }
+        map.ConstructComponents();
+        DeepProfiler.End();
+        Current.Game.AddMap(map);
+        if (mapGenerator.isUnderground)
+        {
+          foreach (IntVec3 allCell in map.AllCells)
+            map.roofGrid.SetRoof(allCell, mapGenerator.roofDef ?? RoofDefOf.RoofRockThick);
+        }
+        if (extraInitBeforeContentGen != null)
+          extraInitBeforeContentGen(map);
+        IEnumerable<GenStepWithParams> genStepWithParamses = mapGenerator.genSteps.Where<GenStepDef>((Func<GenStepDef, bool>) (g => !Find.Scenario.parts.Any<ScenPart>((Predicate<ScenPart>) (p => typeof (ScenPart_DisableMapGen).IsAssignableFrom(p.def.scenPartClass) && p.def.genStep == g)))).Select<GenStepDef, GenStepWithParams>((Func<GenStepDef, GenStepWithParams>) (x => new GenStepWithParams(x, new GenStepParams())));
+        if (extraGenStepDefs != null)
+          genStepWithParamses = genStepWithParamses.Concat<GenStepWithParams>(extraGenStepDefs);
+        map.areaManager.AddStartingAreas();
+        map.weatherDecider.StartInitialWeather();
+        DeepProfiler.Start("Generate contents into map");
+        MapGenerator.GenerateContentsIntoMap(genStepWithParamses, map, seed);
+        DeepProfiler.End();
+        Find.Scenario.PostMapGenerate(map);
+        DeepProfiler.Start("Finalize map init");
+        map.FinalizeInit();
+        DeepProfiler.End();
+        DeepProfiler.Start("MapComponent.MapGenerated()");
+        MapComponentUtility.MapGenerated(map);
+        DeepProfiler.End();
+        parent?.PostMapGenerate();
+        return map;
+      }
+      finally
+      {
+        DeepProfiler.End();
+        MapGenerator.mapBeingGenerated = (Map) null;
+        Current.ProgramState = programState;
+        Rand.PopState();
+      }
+    }
+
+    public static void GenerateContentsIntoMap(
+      IEnumerable<GenStepWithParams> genStepDefs,
+      Map map,
+      int seed)
+    {
+      MapGenerator.data.Clear();
+      Rand.PushState();
+      try
+      {
+        Rand.Seed = seed;
+        RockNoises.Init(map);
+        MapGenerator.tmpGenSteps.Clear();
+        MapGenerator.tmpGenSteps.AddRange((IEnumerable<GenStepWithParams>) genStepDefs.OrderBy<GenStepWithParams, float>((Func<GenStepWithParams, float>) (x => x.def.order)).ThenBy<GenStepWithParams, ushort>((Func<GenStepWithParams, ushort>) (x => x.def.index)));
+        for (int index = 0; index < MapGenerator.tmpGenSteps.Count; ++index)
+        {
+          DeepProfiler.Start("GenStep - " + (object) MapGenerator.tmpGenSteps[index].def);
+          try
+          {
+            Rand.Seed = Gen.HashCombineInt(seed, MapGenerator.GetSeedPart(MapGenerator.tmpGenSteps, index));
+            MapGenerator.tmpGenSteps[index].def.genStep.Generate(map, MapGenerator.tmpGenSteps[index].parms);
+          }
+          catch (Exception ex)
+          {
+            Log.Error("Error in GenStep: " + (object) ex);
+          }
+          finally
+          {
+            DeepProfiler.End();
+          }
+        }
+      }
+      finally
+      {
+        Rand.PopState();
+        RockNoises.Reset();
+        MapGenerator.data.Clear();
+      }
+    }
+
+    public static T GetVar<T>(string name)
+    {
+      object obj;
+      return MapGenerator.data.TryGetValue(name, out obj) ? (T) obj : default (T);
+    }
+
+    public static bool TryGetVar<T>(string name, out T var)
+    {
+      object obj;
+      if (MapGenerator.data.TryGetValue(name, out obj))
+      {
+        var = (T) obj;
+        return true;
+      }
+      var = default (T);
+      return false;
+    }
+
+    public static void SetVar<T>(string name, T var) => MapGenerator.data[name] = (object) var;
+
+    public static MapGenFloatGrid FloatGridNamed(string name)
+    {
+      MapGenFloatGrid var1 = MapGenerator.GetVar<MapGenFloatGrid>(name);
+      if (var1 != null)
+        return var1;
+      MapGenFloatGrid var2 = new MapGenFloatGrid(MapGenerator.mapBeingGenerated);
+      MapGenerator.SetVar<MapGenFloatGrid>(name, var2);
+      return var2;
+    }
+
+    private static int GetSeedPart(List<GenStepWithParams> genSteps, int index)
+    {
+      int seedPart = genSteps[index].def.genStep.SeedPart;
+      int num = 0;
+      for (int index1 = 0; index1 < index; ++index1)
+      {
+        if (MapGenerator.tmpGenSteps[index1].def.genStep.SeedPart == seedPart)
+          ++num;
+      }
+      return seedPart + num;
+    }
+  }
+}

@@ -1,0 +1,401 @@
+// Decompiled with JetBrains decompiler
+// Type: RimWorld.Planet.WorldObject
+// Assembly: Assembly-CSharp, Version=1.5.9214.33606, Culture=neutral, PublicKeyToken=null
+// MVID: 630E2863-BC9A-4A34-93F2-EFF01E3A9556
+// Assembly location: D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using UnityEngine;
+using Verse;
+
+#nullable disable
+namespace RimWorld.Planet
+{
+  [StaticConstructorOnStartup]
+  public class WorldObject : IExposable, ILoadReferenceable, ISelectable
+  {
+    public WorldObjectDef def;
+    public int ID = -1;
+    private int tileInt = -1;
+    private Faction factionInt;
+    public int creationGameTicks = -1;
+    public List<string> questTags;
+    private bool destroyed;
+    public ThingOwner<Thing> rewards;
+    private List<WorldObjectComp> comps = new List<WorldObjectComp>();
+    private static MaterialPropertyBlock propertyBlock = new MaterialPropertyBlock();
+    private const float BaseDrawSize = 0.7f;
+    private static readonly Texture2D ViewQuestCommandTex = ContentFinder<Texture2D>.Get("UI/Commands/ViewQuest");
+
+    public List<WorldObjectComp> AllComps => this.comps;
+
+    public virtual bool ShowRelatedQuests => true;
+
+    public bool Destroyed => this.destroyed;
+
+    public int Tile
+    {
+      get => this.tileInt;
+      set
+      {
+        if (this.tileInt == value)
+          return;
+        this.tileInt = value;
+        if (this.Spawned && !this.def.useDynamicDrawer)
+          Find.World.renderer.Notify_StaticWorldObjectPosChanged();
+        this.PositionChanged();
+      }
+    }
+
+    public bool Spawned => Find.WorldObjects.Contains(this);
+
+    public virtual Vector3 DrawPos => Find.WorldGrid.GetTileCenter(this.Tile);
+
+    public Faction Faction => this.factionInt;
+
+    public virtual string Label => this.def.label;
+
+    public string LabelCap => this.Label.CapitalizeFirst((Def) this.def);
+
+    public virtual string LabelShort => this.Label;
+
+    public virtual string LabelShortCap => this.LabelShort.CapitalizeFirst((Def) this.def);
+
+    public virtual bool HasName => false;
+
+    public virtual Material Material => this.def.Material;
+
+    public virtual bool SelectableNow => this.def.selectable;
+
+    public virtual bool NeverMultiSelect => this.def.neverMultiSelect;
+
+    public virtual Texture2D ExpandingIcon
+    {
+      get => this.def.ExpandingIconTexture ?? (Texture2D) this.Material.mainTexture;
+    }
+
+    public virtual Color ExpandingIconColor => this.def.expandingIconColor ?? this.Material.color;
+
+    public virtual float ExpandingIconPriority => this.def.expandingIconPriority;
+
+    public virtual bool ExpandMore => this.def.expandMore;
+
+    public virtual bool AppendFactionToInspectString => true;
+
+    public IThingHolder ParentHolder
+    {
+      get => !this.Spawned ? (IThingHolder) null : (IThingHolder) Find.World;
+    }
+
+    public virtual IEnumerable<StatDrawEntry> SpecialDisplayStats
+    {
+      get => Enumerable.Empty<StatDrawEntry>();
+    }
+
+    public BiomeDef Biome => !this.Spawned ? (BiomeDef) null : Find.WorldGrid[this.Tile].biome;
+
+    public virtual float ExpandingIconRotation => 0.0f;
+
+    public virtual bool ExpandingIconFlipHorizontal => false;
+
+    public virtual IEnumerable<IncidentTargetTagDef> IncidentTargetTags()
+    {
+      if (this.def.IncidentTargetTags != null)
+      {
+        foreach (IncidentTargetTagDef incidentTargetTag in this.def.IncidentTargetTags)
+          yield return incidentTargetTag;
+      }
+      for (int i = 0; i < this.comps.Count; ++i)
+      {
+        foreach (IncidentTargetTagDef incidentTargetTag in this.comps[i].IncidentTargetTags())
+          yield return incidentTargetTag;
+      }
+    }
+
+    public virtual void ExposeData()
+    {
+      Scribe_Defs.Look<WorldObjectDef>(ref this.def, "def");
+      if (Scribe.mode == LoadSaveMode.LoadingVars)
+        this.InitializeComps();
+      Scribe_Values.Look<int>(ref this.ID, "ID", -1);
+      Scribe_Values.Look<int>(ref this.tileInt, "tile", -1);
+      Scribe_References.Look<Faction>(ref this.factionInt, "faction");
+      Scribe_Values.Look<int>(ref this.creationGameTicks, "creationGameTicks");
+      Scribe_Collections.Look<string>(ref this.questTags, "questTags", LookMode.Value);
+      Scribe_Values.Look<bool>(ref this.destroyed, "destroyed");
+      if (Scribe.mode != LoadSaveMode.Saving)
+        Scribe_Deep.Look<ThingOwner<Thing>>(ref this.rewards, "rewards");
+      for (int index = 0; index < this.comps.Count; ++index)
+        this.comps[index].PostExposeData();
+    }
+
+    private void InitializeComps()
+    {
+      for (int index = 0; index < this.def.comps.Count; ++index)
+      {
+        WorldObjectComp worldObjectComp = (WorldObjectComp) null;
+        try
+        {
+          worldObjectComp = (WorldObjectComp) Activator.CreateInstance(this.def.comps[index].compClass);
+          worldObjectComp.parent = this;
+          this.comps.Add(worldObjectComp);
+          worldObjectComp.Initialize(this.def.comps[index]);
+        }
+        catch (Exception ex)
+        {
+          Log.Error("Could not instantiate or initialize a WorldObjectComp: " + (object) ex);
+          this.comps.Remove(worldObjectComp);
+        }
+      }
+    }
+
+    public virtual void SetFaction(Faction newFaction)
+    {
+      if (!this.def.canHaveFaction && newFaction != null)
+        Log.Warning("Tried to set faction to " + (object) newFaction + " but this world object (" + (object) this + ") cannot have faction.");
+      else
+        this.factionInt = newFaction;
+    }
+
+    public virtual string GetInspectString()
+    {
+      StringBuilder sb = new StringBuilder();
+      if (this.Faction != null && this.AppendFactionToInspectString)
+        sb.Append((string) ("Faction".Translate() + ": " + this.Faction.Name));
+      for (int index = 0; index < this.comps.Count; ++index)
+      {
+        string str = this.comps[index].CompInspectStringExtra();
+        if (!str.NullOrEmpty())
+        {
+          if (Prefs.DevMode && char.IsWhiteSpace(str[str.Length - 1]))
+          {
+            Log.ErrorOnce(this.comps[index].GetType().ToString() + " CompInspectStringExtra ended with whitespace: " + str, 25612);
+            str = str.TrimEndNewlines();
+          }
+          if (sb.Length != 0)
+            sb.AppendLine();
+          sb.Append(str);
+        }
+      }
+      QuestUtility.AppendInspectStringsFromQuestParts(sb, (ISelectable) this);
+      return sb.ToString();
+    }
+
+    public virtual void Tick()
+    {
+      for (int index = 0; index < this.comps.Count; ++index)
+        this.comps[index].CompTick();
+    }
+
+    public virtual void ExtraSelectionOverlaysOnGUI()
+    {
+    }
+
+    public virtual void DrawExtraSelectionOverlays()
+    {
+      for (int index = 0; index < this.comps.Count; ++index)
+        this.comps[index].PostDrawExtraSelectionOverlays();
+    }
+
+    public virtual void PostMake() => this.InitializeComps();
+
+    public virtual void PostAdd()
+    {
+      QuestUtility.SendQuestTargetSignals(this.questTags, "Spawned", this.Named("SUBJECT"));
+    }
+
+    protected virtual void PositionChanged()
+    {
+    }
+
+    public virtual void SpawnSetup()
+    {
+      if (!this.def.useDynamicDrawer)
+        Find.World.renderer.Notify_StaticWorldObjectPosChanged();
+      if (!this.def.useDynamicDrawer)
+        return;
+      Find.WorldDynamicDrawManager.RegisterDrawable(this);
+    }
+
+    public virtual void PostRemove()
+    {
+      if (!this.def.useDynamicDrawer)
+        Find.World.renderer.Notify_StaticWorldObjectPosChanged();
+      if (this.def.useDynamicDrawer)
+        Find.WorldDynamicDrawManager.DeRegisterDrawable(this);
+      Find.WorldSelector.Deselect(this);
+      for (int index = 0; index < this.comps.Count; ++index)
+        this.comps[index].PostPostRemove();
+      QuestUtility.SendQuestTargetSignals(this.questTags, "Despawned", this.Named("SUBJECT"));
+    }
+
+    public virtual void Destroy()
+    {
+      if (this.Destroyed)
+      {
+        Log.Error("Tried to destroy already-destroyed world object " + (object) this);
+      }
+      else
+      {
+        if (this.Spawned)
+          Find.WorldObjects.Remove(this);
+        this.destroyed = true;
+        Find.FactionManager.Notify_WorldObjectDestroyed(this);
+        for (int index = 0; index < this.comps.Count; ++index)
+          this.comps[index].PostDestroy();
+        QuestUtility.SendQuestTargetSignals(this.questTags, "Destroyed", this.Named("SUBJECT"));
+      }
+    }
+
+    public virtual void Print(LayerSubMesh subMesh)
+    {
+      WorldRendererUtility.PrintQuadTangentialToPlanet(this.DrawPos, 0.7f * Find.WorldGrid.averageTileSize, 0.015f, subMesh, randomizeRotation: true);
+    }
+
+    public virtual void Draw()
+    {
+      float averageTileSize = Find.WorldGrid.averageTileSize;
+      float transitionPct = ExpandableWorldObjectsUtility.TransitionPct;
+      if (this.def.expandingIcon && (double) transitionPct > 0.0)
+      {
+        Color color = this.Material.color;
+        float num = 1f - transitionPct;
+        WorldObject.propertyBlock.SetColor(ShaderPropertyIDs.Color, new Color(color.r, color.g, color.b, color.a * num));
+        WorldRendererUtility.DrawQuadTangentialToPlanet(this.DrawPos, 0.7f * averageTileSize, 0.015f, this.Material, propertyBlock: WorldObject.propertyBlock);
+      }
+      else
+        WorldRendererUtility.DrawQuadTangentialToPlanet(this.DrawPos, 0.7f * averageTileSize, 0.015f, this.Material);
+    }
+
+    public T GetComponent<T>() where T : WorldObjectComp
+    {
+      for (int index = 0; index < this.comps.Count; ++index)
+      {
+        if (this.comps[index] is T comp)
+          return comp;
+      }
+      return default (T);
+    }
+
+    public WorldObjectComp GetComponent(System.Type type)
+    {
+      for (int index = 0; index < this.comps.Count; ++index)
+      {
+        if (type.IsAssignableFrom(this.comps[index].GetType()))
+          return this.comps[index];
+      }
+      return (WorldObjectComp) null;
+    }
+
+    public virtual IEnumerable<Gizmo> GetGizmos()
+    {
+      WorldObject worldObject = this;
+      int i;
+      if (worldObject.ShowRelatedQuests)
+      {
+        List<Quest> quests = Find.QuestManager.QuestsListForReading;
+        for (i = 0; i < quests.Count; ++i)
+        {
+          Quest quest = quests[i];
+          if (!quest.hidden && !quest.Historical && !quest.dismissed && quest.QuestLookTargets.Contains<GlobalTargetInfo>((GlobalTargetInfo) worldObject))
+          {
+            Command_Action gizmo = new Command_Action();
+            gizmo.defaultLabel = (string) "CommandViewQuest".Translate((NamedArgument) quest.name);
+            gizmo.defaultDesc = (string) "CommandViewQuestDesc".Translate();
+            gizmo.icon = (Texture) WorldObject.ViewQuestCommandTex;
+            gizmo.action = (Action) (() =>
+            {
+              Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Quests);
+              ((MainTabWindow_Quests) MainButtonDefOf.Quests.TabWindow).Select(quest);
+            });
+            yield return (Gizmo) gizmo;
+          }
+        }
+        quests = (List<Quest>) null;
+      }
+      for (i = 0; i < worldObject.comps.Count; ++i)
+      {
+        foreach (Gizmo gizmo in worldObject.comps[i].GetGizmos())
+          yield return gizmo;
+      }
+    }
+
+    public virtual IEnumerable<Gizmo> GetCaravanGizmos(Caravan caravan)
+    {
+      for (int i = 0; i < this.comps.Count; ++i)
+      {
+        foreach (Gizmo caravanGizmo in this.comps[i].GetCaravanGizmos(caravan))
+          yield return caravanGizmo;
+      }
+    }
+
+    public virtual IEnumerable<FloatMenuOption> GetFloatMenuOptions(Caravan caravan)
+    {
+      for (int i = 0; i < this.comps.Count; ++i)
+      {
+        foreach (FloatMenuOption floatMenuOption in this.comps[i].GetFloatMenuOptions(caravan))
+          yield return floatMenuOption;
+      }
+    }
+
+    public virtual IEnumerable<FloatMenuOption> GetTransportPodsFloatMenuOptions(
+      IEnumerable<IThingHolder> pods,
+      CompLaunchable representative)
+    {
+      for (int i = 0; i < this.comps.Count; ++i)
+      {
+        foreach (FloatMenuOption podsFloatMenuOption in this.comps[i].GetTransportPodsFloatMenuOptions(pods, representative))
+          yield return podsFloatMenuOption;
+      }
+    }
+
+    public virtual IEnumerable<FloatMenuOption> GetShuttleFloatMenuOptions(
+      IEnumerable<IThingHolder> pods,
+      Action<int, TransportPodsArrivalAction> launchAction)
+    {
+      return Enumerable.Empty<FloatMenuOption>();
+    }
+
+    public virtual IEnumerable<InspectTabBase> GetInspectTabs()
+    {
+      return (IEnumerable<InspectTabBase>) this.def.inspectorTabsResolved;
+    }
+
+    public virtual bool AllMatchingObjectsOnScreenMatchesWith(WorldObject other)
+    {
+      return this.Faction == other.Faction;
+    }
+
+    public override string ToString()
+    {
+      return this.GetType().Name + " " + this.LabelCap + " (tile=" + (object) this.Tile + ")";
+    }
+
+    public override int GetHashCode() => this.ID;
+
+    public string GetUniqueLoadID() => "WorldObject_" + (object) this.ID;
+
+    public virtual string GetDescription()
+    {
+      StringBuilder stringBuilder = new StringBuilder();
+      stringBuilder.Append(this.def.description);
+      for (int index = 0; index < this.comps.Count; ++index)
+      {
+        string descriptionPart = this.comps[index].GetDescriptionPart();
+        if (!descriptionPart.NullOrEmpty())
+        {
+          if (stringBuilder.Length > 0)
+          {
+            stringBuilder.AppendLine();
+            stringBuilder.AppendLine();
+          }
+          stringBuilder.Append(descriptionPart);
+        }
+      }
+      return stringBuilder.ToString();
+    }
+  }
+}

@@ -1,0 +1,44 @@
+// Decompiled with JetBrains decompiler
+// Type: RimWorld.PawnGroupMaker
+// Assembly: Assembly-CSharp, Version=1.5.9214.33606, Culture=neutral, PublicKeyToken=null
+// MVID: 630E2863-BC9A-4A34-93F2-EFF01E3A9556
+// Assembly location: D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll
+
+using System.Collections.Generic;
+using Verse;
+
+#nullable disable
+namespace RimWorld
+{
+  public class PawnGroupMaker
+  {
+    public PawnGroupKindDef kindDef;
+    public float commonality = 100f;
+    public List<RaidStrategyDef> disallowedStrategies;
+    public float maxTotalPoints = 9999999f;
+    public List<PawnGenOption> options = new List<PawnGenOption>();
+    public List<PawnGenOption> traders = new List<PawnGenOption>();
+    public List<PawnGenOption> carriers = new List<PawnGenOption>();
+    public List<PawnGenOption> guards = new List<PawnGenOption>();
+
+    public float MinPointsToGenerateAnything(FactionDef faction, PawnGroupMakerParms parms = null)
+    {
+      return this.kindDef.Worker.MinPointsToGenerateAnything(this, faction, parms);
+    }
+
+    public IEnumerable<Pawn> GeneratePawns(PawnGroupMakerParms parms, bool errorOnZeroResults = true)
+    {
+      return (IEnumerable<Pawn>) this.kindDef.Worker.GeneratePawns(parms, this, errorOnZeroResults);
+    }
+
+    public IEnumerable<PawnKindDef> GeneratePawnKindsExample(PawnGroupMakerParms parms)
+    {
+      return this.kindDef.Worker.GeneratePawnKindsExample(parms, this);
+    }
+
+    public bool CanGenerateFrom(PawnGroupMakerParms parms)
+    {
+      return (double) parms.points <= (double) this.maxTotalPoints && (this.disallowedStrategies == null || !this.disallowedStrategies.Contains(parms.raidStrategy)) && (parms.raidStrategy == null || !(parms.raidStrategy.Worker is RaidStrategyWorker_WithRequiredPawnKinds worker) || worker.CanUseWithGroupMaker(this)) && this.kindDef.Worker.CanGenerateFrom(parms, this);
+    }
+  }
+}

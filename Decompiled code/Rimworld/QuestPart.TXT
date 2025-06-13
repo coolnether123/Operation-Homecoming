@@ -1,0 +1,148 @@
+// Decompiled with JetBrains decompiler
+// Type: RimWorld.QuestPart
+// Assembly: Assembly-CSharp, Version=1.5.9214.33606, Culture=neutral, PublicKeyToken=null
+// MVID: 630E2863-BC9A-4A34-93F2-EFF01E3A9556
+// Assembly location: D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll
+
+using RimWorld.Planet;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using Verse;
+
+#nullable disable
+namespace RimWorld
+{
+  public abstract class QuestPart : IExposable, ILoadReferenceable
+  {
+    public Quest quest;
+    public QuestPart.SignalListenMode signalListenMode;
+    public string debugLabel;
+
+    public virtual string DescriptionPart { get; }
+
+    public int Index => this.quest.PartsListForReading.IndexOf(this);
+
+    public virtual IEnumerable<GlobalTargetInfo> QuestLookTargets
+    {
+      get => Enumerable.Empty<GlobalTargetInfo>();
+    }
+
+    public virtual string QuestSelectTargetsLabel => (string) null;
+
+    public virtual IEnumerable<GlobalTargetInfo> QuestSelectTargets
+    {
+      get => Enumerable.Empty<GlobalTargetInfo>();
+    }
+
+    public virtual IEnumerable<Faction> InvolvedFactions => Enumerable.Empty<Faction>();
+
+    public virtual IEnumerable<Dialog_InfoCard.Hyperlink> Hyperlinks
+    {
+      get => Enumerable.Empty<Dialog_InfoCard.Hyperlink>();
+    }
+
+    public virtual bool IncreasesPopulation => false;
+
+    public virtual bool RequiresAccepter => false;
+
+    public virtual bool PreventsAutoAccept => this.RequiresAccepter;
+
+    public virtual bool QuestPartReserves(Pawn p) => false;
+
+    public virtual bool QuestPartReserves(Faction f) => false;
+
+    public virtual bool QuestPartReserves(TransportShip ship) => false;
+
+    public virtual void Cleanup()
+    {
+    }
+
+    public virtual void AssignDebugData()
+    {
+    }
+
+    public virtual void PreQuestAccept()
+    {
+    }
+
+    public virtual void ExposeData()
+    {
+      Scribe_Values.Look<QuestPart.SignalListenMode>(ref this.signalListenMode, "signalListenMode");
+      Scribe_Values.Look<string>(ref this.debugLabel, "debugLabel");
+    }
+
+    public virtual void Notify_QuestSignalReceived(Signal signal)
+    {
+    }
+
+    public virtual void Notify_ThingsProduced(Pawn worker, List<Thing> things)
+    {
+    }
+
+    public virtual void Notify_PlantHarvested(Pawn worker, Thing harvested)
+    {
+    }
+
+    public virtual void Notify_PawnKilled(Pawn pawn, DamageInfo? dinfo)
+    {
+    }
+
+    public virtual void Notify_PawnBorn(Thing baby, Thing birther, Pawn mother, Pawn father)
+    {
+    }
+
+    public virtual void Notify_FactionRemoved(Faction faction)
+    {
+    }
+
+    public virtual void Notify_PawnDiscarded(Pawn pawn)
+    {
+    }
+
+    public virtual void Notify_PreCleanup()
+    {
+    }
+
+    public virtual void PostQuestAdded()
+    {
+    }
+
+    public virtual void ReplacePawnReferences(Pawn replace, Pawn with)
+    {
+    }
+
+    public virtual void DoDebugWindowContents(Rect innerRect, ref float curY)
+    {
+    }
+
+    public override string ToString()
+    {
+      string name = this.GetType().Name;
+      Quest quest = this.quest;
+      // ISSUE: variable of a boxed type
+      __Boxed<int> local = (ValueType) (quest != null ? quest.id : -1);
+      // ISSUE: variable of a boxed type
+      __Boxed<int> index = (ValueType) this.Index;
+      string str = string.Format("{0} (quest.id={1}, index={2}", (object) name, (object) local, (object) index);
+      if (!this.debugLabel.NullOrEmpty())
+        str = str + ", debugLabel=" + this.debugLabel;
+      return str + ")";
+    }
+
+    public string GetUniqueLoadID()
+    {
+      return "QuestPart_" + (object) this.quest.id + "_" + (object) this.Index;
+    }
+
+    public enum SignalListenMode
+    {
+      OngoingOnly,
+      NotYetAcceptedOnly,
+      OngoingOrNotYetAccepted,
+      HistoricalOnly,
+      Always,
+    }
+  }
+}

@@ -1,0 +1,164 @@
+// Decompiled with JetBrains decompiler
+// Type: RimWorld.IncidentDef
+// Assembly: Assembly-CSharp, Version=1.5.9214.33606, Culture=neutral, PublicKeyToken=null
+// MVID: 630E2863-BC9A-4A34-93F2-EFF01E3A9556
+// Assembly location: D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Verse;
+
+#nullable disable
+namespace RimWorld
+{
+  public class IncidentDef : Def
+  {
+    public System.Type workerClass;
+    public IncidentCategoryDef category;
+    public List<IncidentTargetTagDef> targetTags;
+    public float baseChance;
+    public float baseChanceWithRoyalty = -1f;
+    public IncidentPopulationEffect populationEffect;
+    public int earliestDay;
+    public int minPopulation;
+    public bool requireColonistsPresent;
+    public float minRefireDays;
+    [Obsolete]
+    public int minDifficulty;
+    public DifficultyConditionConfig disabledWhen = new DifficultyConditionConfig();
+    public bool pointsScaleable;
+    public float minThreatPoints = float.MinValue;
+    public float maxThreatPoints = float.MaxValue;
+    public List<BiomeDef> allowedBiomes;
+    public List<BiomeDef> disallowedBiomes;
+    [NoTranslate]
+    public List<string> tags;
+    [NoTranslate]
+    public List<string> refireCheckTags;
+    public SimpleCurve chanceFactorByPopulationCurve;
+    public TaleDef tale;
+    public int minAnomalyThreatLevel = -1;
+    public int minGreatestPopulation = -1;
+    private bool ignoreRecentSelectionWeighting;
+    public bool hidden;
+    public EntityCodexEntryDef codexEntry;
+    [MustTranslate]
+    public string letterText;
+    [MustTranslate]
+    public string letterLabel;
+    public LetterDef letterDef;
+    public List<HediffDef> letterHyperlinkHediffDefs;
+    public bool letterSingularForm;
+    public PawnKindDef pawnKind;
+    public bool pawnMustBeCapableOfViolence;
+    public Gender pawnFixedGender;
+    public HediffDef pawnHediff;
+    public GameConditionDef gameCondition;
+    public FloatRange durationDays;
+    public HediffDef diseaseIncident;
+    public FloatRange diseaseVictimFractionRange = new FloatRange(0.0f, 0.49f);
+    public int diseaseMaxVictims = 99999;
+    public List<BiomeDiseaseRecord> diseaseBiomeRecords;
+    public List<BodyPartDef> diseasePartsToAffect;
+    [MustTranslate]
+    public string diseaseLethalLetterText;
+    public DevelopmentalStage diseaseDevelopmentStage = DevelopmentalStage.Baby | DevelopmentalStage.Child | DevelopmentalStage.Adult;
+    public ThingDef mechClusterBuilding;
+    public List<MTBByBiome> mtbDaysByBiome;
+    public QuestScriptDef questScriptDef;
+    public ThingDef treeDef;
+    public GenStepDef treeGenStepDef;
+    public string letterTextPlural;
+    public float treeGrowth;
+    [Unsaved(false)]
+    private IncidentWorker workerInt;
+    [Unsaved(false)]
+    private List<IncidentDef> cachedRefireCheckIncidents;
+
+    public bool ShouldIgnoreRecentWeighting
+    {
+      get
+      {
+        return this.ignoreRecentSelectionWeighting || this.category == IncidentCategoryDefOf.Special || this.category == IncidentCategoryDefOf.GiveQuest;
+      }
+    }
+
+    public IncidentWorker Worker
+    {
+      get
+      {
+        if (this.workerInt == null)
+        {
+          this.workerInt = (IncidentWorker) Activator.CreateInstance(this.workerClass);
+          this.workerInt.def = this;
+        }
+        return this.workerInt;
+      }
+    }
+
+    public List<IncidentDef> RefireCheckIncidents
+    {
+      get
+      {
+        if (this.refireCheckTags == null)
+          return (List<IncidentDef>) null;
+        if (this.cachedRefireCheckIncidents == null)
+        {
+          this.cachedRefireCheckIncidents = new List<IncidentDef>();
+          List<IncidentDef> defsListForReading = DefDatabase<IncidentDef>.AllDefsListForReading;
+          for (int index = 0; index < defsListForReading.Count; ++index)
+          {
+            if (this.ShouldDoRefireCheckWith(defsListForReading[index]))
+              this.cachedRefireCheckIncidents.Add(defsListForReading[index]);
+          }
+        }
+        return this.cachedRefireCheckIncidents;
+      }
+    }
+
+    public bool IsAnomalyIncident => this.minAnomalyThreatLevel >= 0;
+
+    public static IncidentDef Named(string defName) => DefDatabase<IncidentDef>.GetNamed(defName);
+
+    private bool ShouldDoRefireCheckWith(IncidentDef other)
+    {
+      if (other.tags == null || other == this)
+        return false;
+      for (int index1 = 0; index1 < other.tags.Count; ++index1)
+      {
+        for (int index2 = 0; index2 < this.refireCheckTags.Count; ++index2)
+        {
+          if (other.tags[index1] == this.refireCheckTags[index2])
+            return true;
+        }
+      }
+      return false;
+    }
+
+    public override IEnumerable<string> ConfigErrors()
+    {
+      foreach (string configError in base.ConfigErrors())
+        yield return configError;
+      if (this.category == null)
+        yield return "category is undefined.";
+      if (this.targetTags == null || this.targetTags.Count == 0)
+        yield return "no target type";
+      if (this.TargetTagAllowed(IncidentTargetTagDefOf.World) && this.targetTags.Any<IncidentTargetTagDef>((Predicate<IncidentTargetTagDef>) (tt => tt != IncidentTargetTagDefOf.World)))
+        yield return "allows world target type along with other targets. World targeting incidents should only target the world.";
+      if (this.TargetTagAllowed(IncidentTargetTagDefOf.World) && (this.allowedBiomes != null || this.disallowedBiomes != null))
+        yield return "world-targeting incident has a biome restriction list";
+      if (this.allowedBiomes != null && this.disallowedBiomes != null)
+        yield return "allowedBiomes (white list) and disallowedBiomes (black list) are both defined.";
+      if (this.questScriptDef != null && (double) this.questScriptDef.rootSelectionWeight != 0.0)
+        yield return "quest is run from both incident and random quest.";
+    }
+
+    public bool TargetTagAllowed(IncidentTargetTagDef target) => this.targetTags.Contains(target);
+
+    public bool TargetAllowed(IIncidentTarget target)
+    {
+      return this.targetTags.Intersect<IncidentTargetTagDef>(target.IncidentTargetTags()).Any<IncidentTargetTagDef>();
+    }
+  }
+}

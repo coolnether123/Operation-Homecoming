@@ -1,0 +1,173 @@
+// Decompiled with JetBrains decompiler
+// Type: Verse.Dialog_MessageBox
+// Assembly: Assembly-CSharp, Version=1.5.9214.33606, Culture=neutral, PublicKeyToken=null
+// MVID: 630E2863-BC9A-4A34-93F2-EFF01E3A9556
+// Assembly location: D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll
+
+using System;
+using UnityEngine;
+
+#nullable disable
+namespace Verse
+{
+  public class Dialog_MessageBox : Window
+  {
+    public TaggedString text;
+    public string title;
+    public string buttonAText;
+    public Action buttonAAction;
+    public bool buttonADestructive;
+    public string buttonBText;
+    public Action buttonBAction;
+    public string buttonCText;
+    public Action buttonCAction;
+    public bool buttonCClose = true;
+    public float interactionDelay;
+    public Action acceptAction;
+    public Action cancelAction;
+    public Texture2D image;
+    private Vector2 scrollPosition = Vector2.zero;
+    private float creationRealTime = -1f;
+    private const float TitleHeight = 42f;
+    protected const float ButtonHeight = 35f;
+
+    public override Vector2 InitialSize => new Vector2(640f, 460f);
+
+    private float TimeUntilInteractive
+    {
+      get => this.interactionDelay - (Time.realtimeSinceStartup - this.creationRealTime);
+    }
+
+    private bool InteractionDelayExpired => (double) this.TimeUntilInteractive <= 0.0;
+
+    public static Dialog_MessageBox CreateConfirmation(
+      TaggedString text,
+      Action confirmedAct,
+      bool destructive = false,
+      string title = null,
+      WindowLayer layer = WindowLayer.Dialog)
+    {
+      return new Dialog_MessageBox(text, (string) "Confirm".Translate(), confirmedAct, (string) "GoBack".Translate(), title: title, buttonADestructive: destructive, acceptAction: confirmedAct, cancelAction: (Action) (() => { }), layer: layer);
+    }
+
+    public static Dialog_MessageBox CreateConfirmation(
+      TaggedString text,
+      Action confirmedAct,
+      Action cancelAct,
+      bool destructive = false,
+      string title = null,
+      WindowLayer layer = WindowLayer.Dialog)
+    {
+      return new Dialog_MessageBox(text, (string) "Confirm".Translate(), confirmedAct, (string) "GoBack".Translate(), cancelAct, title, destructive, confirmedAct, cancelAct, layer);
+    }
+
+    public Dialog_MessageBox(
+      TaggedString text,
+      string buttonAText = null,
+      Action buttonAAction = null,
+      string buttonBText = null,
+      Action buttonBAction = null,
+      string title = null,
+      bool buttonADestructive = false,
+      Action acceptAction = null,
+      Action cancelAction = null,
+      WindowLayer layer = WindowLayer.Dialog)
+      : base()
+    {
+      this.text = text;
+      this.buttonAText = buttonAText;
+      this.buttonAAction = buttonAAction;
+      this.buttonADestructive = buttonADestructive;
+      this.buttonBText = buttonBText;
+      this.buttonBAction = buttonBAction;
+      this.title = title;
+      this.acceptAction = acceptAction;
+      this.cancelAction = cancelAction;
+      this.layer = layer;
+      if (buttonAText.NullOrEmpty())
+        this.buttonAText = (string) "OK".Translate();
+      this.forcePause = true;
+      this.absorbInputAroundWindow = true;
+      this.creationRealTime = RealTime.LastRealTime;
+      this.onlyOneOfTypeAllowed = false;
+      bool flag = buttonAAction == null && buttonBAction == null && this.buttonCAction == null;
+      this.forceCatchAcceptAndCancelEventEvenIfUnfocused = ((acceptAction != null ? 1 : (cancelAction != null ? 1 : 0)) | (flag ? 1 : 0)) != 0;
+      this.closeOnAccept = flag;
+      this.closeOnCancel = flag;
+    }
+
+    public override void DoWindowContents(Rect inRect)
+    {
+      float y = inRect.y;
+      if (!this.title.NullOrEmpty())
+      {
+        Text.Font = GameFont.Medium;
+        Widgets.Label(new Rect(0.0f, y, inRect.width, 42f), this.title);
+        y += 42f;
+      }
+      if ((UnityEngine.Object) this.image != (UnityEngine.Object) null)
+      {
+        float width = 270f * ((float) this.image.width / (float) this.image.height);
+        GUI.DrawTexture(new Rect(inRect.x + (float) (((double) inRect.width - (double) width) / 2.0), y, width, 270f), (Texture) this.image);
+        y += 280f;
+      }
+      Text.Font = GameFont.Small;
+      Rect outRect = new Rect(inRect.x, y, inRect.width, (float) ((double) inRect.height - 35.0 - 5.0) - y);
+      float width1 = outRect.width - 16f;
+      Rect viewRect = new Rect(0.0f, 0.0f, width1, Text.CalcHeight((string) this.text, width1));
+      Widgets.BeginScrollView(outRect, ref this.scrollPosition, viewRect);
+      Widgets.Label(new Rect(0.0f, 0.0f, viewRect.width, viewRect.height), this.text);
+      Widgets.EndScrollView();
+      int num = this.buttonCText.NullOrEmpty() ? 2 : 3;
+      float x = inRect.width / (float) num;
+      float width2 = x - 10f;
+      if (this.buttonADestructive)
+        GUI.color = new Color(1f, 0.3f, 0.35f);
+      string label = this.InteractionDelayExpired ? this.buttonAText : this.buttonAText + "(" + Mathf.Ceil(this.TimeUntilInteractive).ToString("F0") + ")";
+      if (Widgets.ButtonText(new Rect((float) ((double) x * (double) (num - 1) + 10.0), inRect.height - 35f, width2, 35f), label) && this.InteractionDelayExpired)
+      {
+        if (this.buttonAAction != null)
+          this.buttonAAction();
+        this.Close();
+      }
+      GUI.color = Color.white;
+      if (this.buttonBText != null && Widgets.ButtonText(new Rect(0.0f, inRect.height - 35f, width2, 35f), this.buttonBText))
+      {
+        if (this.buttonBAction != null)
+          this.buttonBAction();
+        this.Close();
+      }
+      if (this.buttonCText == null || !Widgets.ButtonText(new Rect(x, inRect.height - 35f, width2, 35f), this.buttonCText))
+        return;
+      if (this.buttonCAction != null)
+        this.buttonCAction();
+      if (!this.buttonCClose)
+        return;
+      this.Close();
+    }
+
+    public override void OnCancelKeyPressed()
+    {
+      if (this.cancelAction != null)
+      {
+        this.cancelAction();
+        this.Close();
+        Event.current.Use();
+      }
+      else
+        base.OnCancelKeyPressed();
+    }
+
+    public override void OnAcceptKeyPressed()
+    {
+      if (this.acceptAction != null)
+      {
+        this.acceptAction();
+        this.Close();
+        Event.current.Use();
+      }
+      else
+        base.OnAcceptKeyPressed();
+    }
+  }
+}

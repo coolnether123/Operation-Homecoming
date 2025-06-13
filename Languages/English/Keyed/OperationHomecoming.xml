@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+
+  <!-- Contact Success Letters -->
+  <OH_ContactSuccessLabel>Contact from {0}</OH_ContactSuccessLabel>
+  
+  <OH_Contact_default>{0} has managed to make contact from captivity! They've provided basic intelligence about their location. A rescue mission is now available.</OH_Contact_default>
+  
+  <OH_Contact_bonded_animal_courier>{0} has sent a message via their bonded animal! The creature arrived injured but alive, carrying intelligence about the kidnap camp. The animal will join your colony if the rescue succeeds.</OH_Contact_bonded_animal_courier>
+  
+  <OH_Contact_caravan_smuggled_note>{0} managed to slip a note to a passing caravan! The traders were sympathetic to your plight and have provided the location of the kidnap camp. Your relationship with their faction has improved.</OH_Contact_caravan_smuggled_note>
+  
+  <OH_Contact_hacked_comms_burst>{0} has hacked into their captors' communications! The signal was brief but contained vital intelligence. However, the effort has left them injured.</OH_Contact_hacked_comms_burst>
+  
+  <OH_Contact_coded_art_trade>{0} has hidden a coded message in artwork that's being traded! The message contains the location of their prison. The artwork will be available for purchase from traders.</OH_Contact_coded_art_trade>
+  
+  <OH_Contact_knotted_item_on_road>{0} has left coded items along trade routes! One of your colonists found the message while traveling. Check the map edge for the hidden intelligence.</OH_Contact_knotted_item_on_road>
+  
+  <OH_Contact_structural_flaw_note>{0} has identified a structural weakness in their prison! They've provided intelligence about a wall that can be collapsed to create an alternate entry point.</OH_Contact_structural_flaw_note>
+  
+  <OH_Contact_ore_chunk_message>{0} has hidden a message in ore chunks being mined! The intelligence was discovered in silver that appeared on your colony map. The rescue window is shortened, but you have valuable information.</OH_Contact_ore_chunk_message>
+  
+  <OH_Contact_mass_food_poisoning>{0} has caused mass food poisoning among their captors! This has created chaos in the camp, but also increased security. The rescue window is reduced, but the guards are weakened.</OH_Contact_mass_food_poisoning>
+  
+  <OH_Contact_indebted_prisoner>{0} has saved the life of another prisoner! This person owes them a debt and will assist in the rescue. You'll find an additional ally at the kidnap camp.</OH_Contact_indebted_prisoner>
+  
+  <OH_Contact_hijacked_guard_radio>{0} has hijacked a guard's radio during a raid on your colony! If you're currently under attack, reinforcements will arrive to help you.</OH_Contact_hijacked_guard_radio>
+
+  <!-- Rumor Letters -->
+  <OH_RumorLabel>Rumors from the wasteland</OH_RumorLabel>
+  <OH_Rumor_Sighting>A trader mentioned seeing someone matching {0}'s description being moved between camps. They're still alive, but their location remains unknown.</OH_Rumor_Sighting>
+  <OH_Rumor_Trader>A caravan reported finding personal items belonging to {0} at an abandoned campsite. The trail has gone cold, but they were there recently.</OH_Rumor_Trader>
+  <OH_Rumor_Escape>Word has spread of an escape attempt involving someone matching {0}'s description. The attempt failed, but it shows they're still fighting.</OH_Rumor_Escape>
+  <OH_Rumor_Condition>Disturbing rumors suggest {0} may be injured or ill. Time may be running out to mount a rescue.</OH_Rumor_Condition>
+
+  <!-- Quest Letters -->
+  <OH_RescueSuccessLabel>Rescue successful</OH_RescueSuccessLabel>
+  <OH_RescueSuccessText>{0} has been successfully rescued! They are free to return home, though they may bear the scars of their captivity.</OH_RescueSuccessText>
+
+  <!-- Return Raid -->
+  <OH_ReturnRaidLabel>{0} returns with raiders</OH_ReturnRaidLabel>
+  <OH_ReturnRaidText>{0} has returned as part of a {1} raiding party! They appear to be fighting alongside your enemies, but their true loyalties remain unclear.</OH_ReturnRaidText>
+  <OH_LoyaltyBetrayalMessage>{0} has betrayed their captors and rejoined your side!</OH_LoyaltyBetrayalMessage>
+
+  <!-- Prison Break -->
+  <OH_PrisonBreakLabel>Escape opportunity</OH_PrisonBreakLabel>
+  <OH_PrisonBreakText>{0} has found an opportunity to escape! They need your guidance to make it out alive.</OH_PrisonBreakText>
+
+</LanguageData>

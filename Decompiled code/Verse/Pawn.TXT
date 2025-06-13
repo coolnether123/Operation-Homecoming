@@ -1,0 +1,3360 @@
+// Decompiled with JetBrains decompiler
+// Type: Verse.Pawn
+// Assembly: Assembly-CSharp, Version=1.5.9214.33606, Culture=neutral, PublicKeyToken=null
+// MVID: 630E2863-BC9A-4A34-93F2-EFF01E3A9556
+// Assembly location: D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll
+
+using RimWorld;
+using RimWorld.Planet;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using UnityEngine;
+using Verse.AI;
+using Verse.AI.Group;
+using Verse.Sound;
+
+#nullable disable
+namespace Verse
+{
+  public class Pawn : 
+    ThingWithComps,
+    IStrippable,
+    IBillGiver,
+    IVerbOwner,
+    ITrader,
+    IAttackTarget,
+    ILoadReferenceable,
+    IAttackTargetSearcher,
+    IThingHolder,
+    IObservedThoughtGiver,
+    ISearchableContents
+  {
+    public PawnKindDef kindDef;
+    private Name nameInt;
+    public Gender gender;
+    public Pawn_AgeTracker ageTracker;
+    public Pawn_HealthTracker health;
+    public Pawn_RecordsTracker records;
+    public Pawn_InventoryTracker inventory;
+    public Pawn_MeleeVerbs meleeVerbs;
+    public VerbTracker verbTracker;
+    public Pawn_Ownership ownership;
+    public Pawn_CarryTracker carryTracker;
+    public Pawn_NeedsTracker needs;
+    public Pawn_MindState mindState;
+    public Pawn_SurroundingsTracker surroundings;
+    public Pawn_Thinker thinker;
+    public Pawn_JobTracker jobs;
+    public Pawn_StanceTracker stances;
+    public Pawn_InfectionVectorTracker infectionVectors;
+    public Pawn_DuplicateTracker duplicate;
+    public Pawn_RotationTracker rotationTracker;
+    public Pawn_PathFollower pather;
+    public Pawn_NativeVerbs natives;
+    public Pawn_FilthTracker filth;
+    public Pawn_RopeTracker roping;
+    public Pawn_EquipmentTracker equipment;
+    public Pawn_ApparelTracker apparel;
+    public Pawn_SkillTracker skills;
+    public Pawn_StoryTracker story;
+    public Pawn_GuestTracker guest;
+    public Pawn_GuiltTracker guilt;
+    public Pawn_RoyaltyTracker royalty;
+    public Pawn_AbilityTracker abilities;
+    public Pawn_IdeoTracker ideo;
+    public Pawn_GeneTracker genes;
+    public Pawn_CreepJoinerTracker creepjoiner;
+    public Pawn_WorkSettings workSettings;
+    public Pawn_TraderTracker trader;
+    public Pawn_StyleTracker style;
+    public Pawn_StyleObserverTracker styleObserver;
+    public Pawn_ConnectionsTracker connections;
+    public Pawn_TrainingTracker training;
+    public Pawn_CallTracker caller;
+    public Pawn_PsychicEntropyTracker psychicEntropy;
+    public Pawn_MutantTracker mutant;
+    public Pawn_RelationsTracker relations;
+    public Pawn_InteractionsTracker interactions;
+    public Pawn_PlayerSettings playerSettings;
+    public Pawn_OutfitTracker outfits;
+    public Pawn_DrugPolicyTracker drugs;
+    public Pawn_FoodRestrictionTracker foodRestriction;
+    public Pawn_TimetableTracker timetable;
+    public Pawn_InventoryStockTracker inventoryStock;
+    public Pawn_MechanitorTracker mechanitor;
+    public Pawn_LearningTracker learning;
+    public Pawn_ReadingTracker reading;
+    public Pawn_DraftController drafter;
+    public bool markedForDiscard;
+    private Pawn_DrawTracker drawer;
+    public int becameWorldPawnTickAbs = -1;
+    public bool teleporting;
+    public bool forceNoDeathNotification;
+    public int showNamePromptOnTick = -1;
+    public int babyNamingDeadline = -1;
+    private Sustainer sustainerAmbient;
+    private Sustainer sustainerMoving;
+    public bool addCorpseToLord;
+    public int timesRaisedAsShambler;
+    private int lastSleepDisturbedTick;
+    public Map prevMap;
+    private Faction deadlifeDustFaction;
+    private int deadlifeDustFactionTick;
+    public bool wasLeftBehindStartingPawn;
+    public bool debugMaxMoveSpeed;
+    public bool wasDraftedBeforeSkip;
+    public bool dontGivePreArrivalPathway;
+    public bool everLostEgo;
+    private const float HumanSizedHeatOutput = 0.3f;
+    private const float AnimalHeatOutputFactor = 0.6f;
+    public const int DefaultBabyNamingPeriod = 60000;
+    public const int DefaultGrowthMomentChoicePeriod = 120000;
+    private const int SleepDisturbanceMinInterval = 300;
+    private const int DeadlifeFactionExpiryTicks = 12500;
+    private const float HeatPushMaxTemperature = 40f;
+    public const int MaxMoveTicks = 450;
+    private static string NotSurgeryReadyTrans;
+    private static string CannotReachTrans;
+    private CompOverseerSubject overseerSubject;
+    private static List<ExtraFaction> tmpExtraFactions = new List<ExtraFaction>();
+    private static List<string> states = new List<string>();
+    private List<WorkTypeDef> cachedDisabledWorkTypes;
+    private List<WorkTypeDef> cachedDisabledWorkTypesPermanent;
+    private Dictionary<WorkTypeDef, List<string>> cachedReasonsForDisabledWorkTypes;
+
+    public Name Name
+    {
+      get => this.nameInt;
+      set => this.nameInt = value;
+    }
+
+    public RaceProperties RaceProps => this.def.race;
+
+    public Job CurJob => this.jobs?.curJob;
+
+    public JobDef CurJobDef => this.CurJob?.def;
+
+    public bool Downed => this.health.Downed;
+
+    public bool Crawling
+    {
+      get
+      {
+        return this.Downed && this.health.CanCrawl && this.CurJobDef != null && this.CurJobDef.isCrawlingIfDowned && !this.InBed();
+      }
+    }
+
+    public bool CanAttackWhileCrawling => this.IsMutant && this.mutant.Def.canAttackWhileCrawling;
+
+    public bool Dead => this.health.Dead;
+
+    public bool DeadOrDowned => this.Dead || this.Downed;
+
+    public string KindLabel => GenLabel.BestKindLabel(this);
+
+    public bool InMentalState => !this.Dead && this.mindState.mentalStateHandler.InMentalState;
+
+    public MentalState MentalState
+    {
+      get => !this.Dead ? this.mindState.mentalStateHandler.CurState : (MentalState) null;
+    }
+
+    public MentalStateDef MentalStateDef
+    {
+      get => !this.Dead ? this.mindState.mentalStateHandler.CurStateDef : (MentalStateDef) null;
+    }
+
+    public bool InAggroMentalState
+    {
+      get
+      {
+        return !this.Dead && this.mindState.mentalStateHandler.InMentalState && this.mindState.mentalStateHandler.CurStateDef.IsAggro;
+      }
+    }
+
+    public bool Inspired
+    {
+      get
+      {
+        return !this.Dead && this.mindState?.inspirationHandler != null && this.mindState.inspirationHandler.Inspired;
+      }
+    }
+
+    public Inspiration Inspiration
+    {
+      get => !this.Dead ? this.mindState.inspirationHandler.CurState : (Inspiration) null;
+    }
+
+    public InspirationDef InspirationDef
+    {
+      get => !this.Dead ? this.mindState.inspirationHandler.CurStateDef : (InspirationDef) null;
+    }
+
+    public override Vector3 DrawPos => this.Drawer.DrawPos;
+
+    public VerbTracker VerbTracker => this.verbTracker;
+
+    public List<Verse.VerbProperties> VerbProperties => this.def.Verbs;
+
+    public List<Tool> Tools => this.def.tools;
+
+    public bool ShouldAvoidFences
+    {
+      get
+      {
+        if (this.def.race.FenceBlocked)
+          return true;
+        return this.roping != null && this.roping.AnyRopeesFenceBlocked;
+      }
+    }
+
+    public bool IsColonist
+    {
+      get
+      {
+        return this.Faction != null && this.Faction.IsPlayer && this.RaceProps.Humanlike && (!this.IsSlave || this.guest.SlaveIsSecure) && !this.IsMutant;
+      }
+    }
+
+    public bool IsFreeColonist => this.IsColonist && this.HostFaction == null;
+
+    public bool IsFreeNonSlaveColonist => this.IsFreeColonist && !this.IsSlave;
+
+    public bool IsCreepJoiner => ModsConfig.AnomalyActive && this.creepjoiner != null;
+
+    public Faction HostFaction => this.guest?.HostFaction;
+
+    public Faction SlaveFaction => this.guest?.SlaveFaction;
+
+    public Ideo Ideo => this.ideo?.Ideo;
+
+    public bool ShouldHaveIdeo
+    {
+      get => !this.DevelopmentalStage.Baby() && !this.kindDef.preventIdeo && !this.IsMutant;
+    }
+
+    public bool Drafted => this.drafter != null && this.drafter.Drafted;
+
+    public bool IsPrisoner => this.guest != null && this.guest.IsPrisoner;
+
+    public bool IsPrisonerOfColony
+    {
+      get => this.guest != null && this.guest.IsPrisoner && this.guest.HostFaction.IsPlayer;
+    }
+
+    public bool IsSlave => this.guest != null && this.guest.IsSlave;
+
+    public bool IsSlaveOfColony => this.IsSlave && this.Faction.IsPlayer;
+
+    public bool IsFreeman => this.HostFaction == null;
+
+    public bool IsMutant => this.mutant != null;
+
+    public bool IsDuplicate
+    {
+      get
+      {
+        return ModsConfig.AnomalyActive && this.duplicate != null && this.duplicate.duplicateOf != int.MinValue && this.duplicate.duplicateOf != this.thingIDNumber;
+      }
+    }
+
+    public bool IsEntity
+    {
+      get
+      {
+        return ModsConfig.AnomalyActive && (!this.RaceProps.Humanlike || this.IsMutant || this.IsShambler) && this.Faction == Faction.OfEntities;
+      }
+    }
+
+    public bool IsShambler
+    {
+      get
+      {
+        if (!ModsConfig.AnomalyActive)
+          return false;
+        return this.IsMutant && this.mutant.Def == MutantDefOf.Shambler || this.health.hediffSet.HasHediff(HediffDefOf.ShamblerCorpse);
+      }
+    }
+
+    public bool IsGhoul
+    {
+      get => ModsConfig.AnomalyActive && this.IsMutant && this.mutant.Def == MutantDefOf.Ghoul;
+    }
+
+    public bool IsAwokenCorpse
+    {
+      get
+      {
+        return ModsConfig.AnomalyActive && this.IsMutant && this.mutant.Def == MutantDefOf.AwokenCorpse;
+      }
+    }
+
+    public bool IsNonMutantAnimal => this.RaceProps.Animal && !this.IsMutant;
+
+    public bool HasShowGizmosOnCorpseHediff
+    {
+      get => this.health?.hediffSet != null && this.health.hediffSet.HasHediffShowGizmosOnCorpse();
+    }
+
+    public DevelopmentalStage DevelopmentalStage
+    {
+      get => this.ageTracker?.CurLifeStage?.developmentalStage ?? DevelopmentalStage.Adult;
+    }
+
+    public RimWorld.GuestStatus? GuestStatus
+    {
+      get
+      {
+        return this.guest != null && (this.HostFaction != null || this.guest.GuestStatus != RimWorld.GuestStatus.Guest) ? new RimWorld.GuestStatus?(this.guest.GuestStatus) : new RimWorld.GuestStatus?();
+      }
+    }
+
+    public bool IsColonistPlayerControlled
+    {
+      get
+      {
+        if (!this.Spawned || !this.IsColonist || this.MentalStateDef != null)
+          return false;
+        return this.HostFaction == null || this.IsSlave;
+      }
+    }
+
+    public bool IsColonyMech
+    {
+      get
+      {
+        if (!ModsConfig.BiotechActive || !this.RaceProps.IsMechanoid || this.Faction != Faction.OfPlayer || this.MentalStateDef != null)
+          return false;
+        return this.HostFaction == null || this.IsSlave;
+      }
+    }
+
+    public bool IsColonyMechPlayerControlled
+    {
+      get
+      {
+        return this.Spawned && this.IsColonyMech && this.OverseerSubject != null && this.OverseerSubject.State == OverseerSubjectState.Overseen;
+      }
+    }
+
+    public bool IsColonyMutant
+    {
+      get => ModsConfig.AnomalyActive && this.IsMutant && this.Faction == Faction.OfPlayer;
+    }
+
+    public bool IsColonyMutantPlayerControlled
+    {
+      get => this.Spawned && this.IsColonyMutant && this.mutant.Def.canBeDrafted;
+    }
+
+    public bool IsPlayerControlled
+    {
+      get
+      {
+        return this.IsColonistPlayerControlled || this.IsColonyMechPlayerControlled || this.IsColonyMutantPlayerControlled;
+      }
+    }
+
+    public IEnumerable<IntVec3> IngredientStackCells
+    {
+      get
+      {
+        int num = this.\u003C\u003E1__state;
+        Pawn pawn = this;
+        if (num != 0)
+        {
+          if (num != 1)
+            return false;
+          this.\u003C\u003E1__state = -1;
+          return false;
+        }
+        this.\u003C\u003E1__state = -1;
+        this.\u003C\u003E2__current = pawn.InteractionCell;
+        this.\u003C\u003E1__state = 1;
+        return true;
+      }
+    }
+
+    public bool InContainerEnclosed => this.ParentHolder.IsEnclosingContainer();
+
+    public Corpse Corpse => this.ParentHolder as Corpse;
+
+    public Pawn CarriedBy
+    {
+      get
+      {
+        return !(this.ParentHolder is Pawn_CarryTracker parentHolder) ? (Pawn) null : parentHolder.pawn;
+      }
+    }
+
+    public virtual bool CanAttackWhenPathingBlocked => !this.IsAwokenCorpse;
+
+    private string LabelPrefix
+    {
+      get => this.IsMutant && this.mutant.HasTurned ? this.mutant.Def.namePrefix : string.Empty;
+    }
+
+    public override string LabelNoCount
+    {
+      get
+      {
+        if (this.Name == null)
+          return this.LabelPrefix + this.KindLabel;
+        return this.story == null || this.story.TitleShortCap.NullOrEmpty() || this.IsMutant ? this.LabelPrefix + this.Name.ToStringShort : this.LabelPrefix + this.Name.ToStringShort + (", " + this.story.TitleShortCap).Colorize(ColoredText.SubtleGrayColor);
+      }
+    }
+
+    public override string LabelShort
+    {
+      get => this.Name != null ? this.LabelPrefix + this.Name.ToStringShort : this.LabelNoCount;
+    }
+
+    public TaggedString LabelNoCountColored
+    {
+      get
+      {
+        if (this.Name == null)
+          return (TaggedString) (this.LabelPrefix + this.KindLabel);
+        return this.story == null || this.story.TitleShortCap.NullOrEmpty() || this.IsMutant ? (TaggedString) (this.LabelPrefix + this.Name.ToStringShort.Colorize(ColoredText.NameColor)) : (TaggedString) (this.LabelPrefix + this.Name.ToStringShort.Colorize(ColoredText.NameColor) + (", " + this.story.TitleShortCap).Colorize(ColoredText.SubtleGrayColor));
+      }
+    }
+
+    public TaggedString NameShortColored
+    {
+      get
+      {
+        return this.Name != null ? (TaggedString) (this.LabelPrefix + this.Name.ToStringShort.Colorize(ColoredText.NameColor)) : (TaggedString) (this.LabelPrefix + this.KindLabel);
+      }
+    }
+
+    public TaggedString NameFullColored
+    {
+      get
+      {
+        return this.Name != null ? (TaggedString) (this.LabelPrefix + this.Name.ToStringFull.Colorize(ColoredText.NameColor)) : (TaggedString) (this.LabelPrefix + this.KindLabel);
+      }
+    }
+
+    public TaggedString LegalStatus
+    {
+      get
+      {
+        if (this.IsSlave)
+          return "Slave".Translate().CapitalizeFirst();
+        return this.Faction != null ? new TaggedString(this.Faction.def.pawnSingular) : "Colonist".Translate();
+      }
+    }
+
+    public float TicksPerMoveCardinal => this.TicksPerMove(false);
+
+    public float TicksPerMoveDiagonal => this.TicksPerMove(true);
+
+    public override string DescriptionDetailed => this.DescriptionFlavor;
+
+    public override string DescriptionFlavor
+    {
+      get
+      {
+        if (ModsConfig.AnomalyActive && this.IsMutant && !this.mutant.Def.description.NullOrEmpty())
+          return this.mutant.Def.description;
+        if (this.IsBaseliner())
+          return this.def.description;
+        string str = this.genes.Xenotype != XenotypeDefOf.Baseliner ? this.genes.Xenotype.description : (this.genes.CustomXenotype == null ? this.genes.Xenotype.description : (string) "UniqueXenotypeDesc".Translate());
+        return (string) ("StatsReport_NonBaselinerDescription".Translate((NamedArgument) this.genes.XenotypeLabel) + "\n\n" + str);
+      }
+    }
+
+    public override IEnumerable<DefHyperlink> DescriptionHyperlinks
+    {
+      get
+      {
+        Pawn pawn = this;
+        foreach (DefHyperlink descriptionHyperlink in pawn.\u003C\u003En__0())
+          yield return descriptionHyperlink;
+        if (!pawn.IsBaseliner() && pawn.genes.CustomXenotype == null)
+          yield return new DefHyperlink((Def) pawn.genes.Xenotype);
+      }
+    }
+
+    public Pawn_DrawTracker Drawer => this.drawer ?? (this.drawer = new Pawn_DrawTracker(this));
+
+    public Faction HomeFaction
+    {
+      get
+      {
+        if (this.Faction == null || !this.Faction.IsPlayer)
+          return this.Faction;
+        if (this.IsSlave && this.SlaveFaction != null)
+          return this.SlaveFaction;
+        return this.HasExtraMiniFaction() ? this.GetExtraMiniFaction() : this.GetExtraHomeFaction() ?? this.Faction;
+      }
+    }
+
+    public bool Deathresting
+    {
+      get => ModsConfig.BiotechActive && this.health.hediffSet.HasHediff(HediffDefOf.Deathrest);
+    }
+
+    public bool HasDeathRefusalOrResurrecting
+    {
+      get
+      {
+        if (!ModsConfig.AnomalyActive)
+          return false;
+        return this.health.hediffSet.HasHediff<Hediff_DeathRefusal>() || this.health.hediffSet.HasHediff(HediffDefOf.Rising);
+      }
+    }
+
+    public override bool Suspended
+    {
+      get
+      {
+        return base.Suspended || Find.WorldPawns.GetSituation(this) == WorldPawnSituation.ReservedByQuest;
+      }
+    }
+
+    public Faction DeadlifeDustFaction
+    {
+      get
+      {
+        return GenTicks.TicksGame - this.deadlifeDustFactionTick < 12500 && this.deadlifeDustFaction != null ? this.deadlifeDustFaction : Faction.OfPlayer;
+      }
+    }
+
+    public bool HasPsylink => this.psychicEntropy?.Psylink != null;
+
+    public CompOverseerSubject OverseerSubject
+    {
+      get
+      {
+        if (ModsConfig.BiotechActive && this.overseerSubject == null && this.RaceProps.IsMechanoid)
+          this.overseerSubject = this.GetComp<CompOverseerSubject>();
+        return this.overseerSubject;
+      }
+    }
+
+    public virtual bool ShouldShowQuestionMark()
+    {
+      return ModsConfig.AnomalyActive && this.creepjoiner != null ? this.creepjoiner.IsOnEntryLord : this.CanTradeNow;
+    }
+
+    public string GetKindLabelSingular() => GenLabel.BestKindLabel(this);
+
+    public string GetKindLabelPlural(int count = -1)
+    {
+      return GenLabel.BestKindLabel(this, plural: true, pluralCount: count);
+    }
+
+    public static void ResetStaticData()
+    {
+      Pawn.NotSurgeryReadyTrans = (string) "NotSurgeryReady".Translate();
+      Pawn.CannotReachTrans = (string) "CannotReach".Translate();
+    }
+
+    public override void Notify_DefsHotReloaded()
+    {
+      base.Notify_DefsHotReloaded();
+      this.Drawer.renderer.SetAllGraphicsDirty();
+    }
+
+    public void MarkDeadlifeDustForFaction(Faction faction)
+    {
+      this.deadlifeDustFaction = faction;
+      this.deadlifeDustFactionTick = GenTicks.TicksGame;
+    }
+
+    public override void SpawnSetup(Map map, bool respawningAfterLoad)
+    {
+      if (this.Dead)
+      {
+        Log.Warning("Tried to spawn Dead Pawn " + this.ToStringSafe<Pawn>() + ". Replacing with corpse.");
+        Corpse newThing = (Corpse) ThingMaker.MakeThing(this.RaceProps.corpseDef);
+        newThing.InnerPawn = this;
+        GenSpawn.Spawn((Thing) newThing, this.Position, map);
+      }
+      else if (this.def == null || this.kindDef == null)
+      {
+        Log.Warning("Tried to spawn pawn without def " + this.ToStringSafe<Pawn>() + ".");
+      }
+      else
+      {
+        base.SpawnSetup(map, respawningAfterLoad);
+        if (Find.WorldPawns.Contains(this))
+          Find.WorldPawns.RemovePawn(this);
+        PawnComponentsUtility.AddComponentsForSpawn(this);
+        if (!PawnUtility.InValidState(this))
+        {
+          Log.Error("Pawn " + this.ToStringSafe<Pawn>() + " spawned in invalid state. Destroying...");
+          try
+          {
+            this.DeSpawn(DestroyMode.Vanish);
+          }
+          catch (Exception ex)
+          {
+            Log.Error("Tried to despawn " + this.ToStringSafe<Pawn>() + " because of the previous error but couldn't: " + (object) ex);
+          }
+          Find.WorldPawns.PassToWorld(this, PawnDiscardDecideMode.Discard);
+        }
+        else
+        {
+          this.Drawer.Notify_Spawned();
+          this.rotationTracker.Notify_Spawned();
+          if (!respawningAfterLoad)
+            this.pather.ResetToCurrentPosition();
+          this.Map.mapPawns.RegisterPawn(this);
+          this.Map.autoSlaughterManager.Notify_PawnSpawned();
+          if (this.relations != null)
+            this.relations.everSeenByPlayer = true;
+          AddictionUtility.CheckDrugAddictionTeachOpportunity(this);
+          this.needs?.mood?.recentMemory?.Notify_Spawned(respawningAfterLoad);
+          this.equipment?.Notify_PawnSpawned();
+          this.health?.Notify_Spawned();
+          this.mechanitor?.Notify_PawnSpawned(respawningAfterLoad);
+          this.mutant?.Notify_Spawned(respawningAfterLoad);
+          this.infectionVectors?.NotifySpawned(respawningAfterLoad);
+          if (this.Faction == Faction.OfPlayer)
+            this.Ideo?.RecacheColonistBelieverCount();
+          if (!respawningAfterLoad)
+          {
+            if ((this.Faction == Faction.OfPlayer || this.IsPlayerControlled) && this.Position.Fogged(map))
+              FloodFillerFog.FloodUnfog(this.Position, map);
+            Find.GameEnder.CheckOrUpdateGameOver();
+            if (this.Faction == Faction.OfPlayer)
+            {
+              Find.StoryWatcher.statsRecord.UpdateGreatestPopulation();
+              Find.World.StoryState.RecordPopulationIncrease();
+            }
+            if (!this.IsMutant)
+              PawnDiedOrDownedThoughtsUtility.RemoveDiedThoughts(this);
+            if (this.IsQuestLodger())
+            {
+              for (int index = this.health.hediffSet.hediffs.Count - 1; index >= 0; --index)
+              {
+                if (this.health.hediffSet.hediffs[index].def.removeOnQuestLodgers)
+                  this.health.RemoveHediff(this.health.hediffSet.hediffs[index]);
+              }
+            }
+          }
+          if (this.RaceProps.soundAmbience != null)
+            LongEventHandler.ExecuteWhenFinished((Action) (() => this.sustainerAmbient = this.RaceProps.soundAmbience.TrySpawnSustainer(SoundInfo.InMap((TargetInfo) (Thing) this, MaintenanceType.PerTick))));
+          if (this.RaceProps.soundMoving != null)
+            LongEventHandler.ExecuteWhenFinished((Action) (() => this.sustainerMoving = this.RaceProps.soundMoving.TrySpawnSustainer(SoundInfo.InMap((TargetInfo) (Thing) this, MaintenanceType.PerTick))));
+          if (this.Ideo == null || !this.Ideo.hidden)
+            return;
+          this.Ideo.hidden = false;
+        }
+      }
+    }
+
+    public override void PostMapInit()
+    {
+      base.PostMapInit();
+      this.pather.TryResumePathingAfterLoading();
+    }
+
+    public void DrawShadowAt(Vector3 drawLoc) => this.Drawer.DrawShadowAt(drawLoc);
+
+    public override void DynamicDrawPhaseAt(DrawPhase phase, Vector3 drawLoc, bool flip = false)
+    {
+      base.DynamicDrawPhaseAt(phase, drawLoc, flip);
+      this.Drawer.renderer.DynamicDrawPhaseAt(phase, drawLoc);
+    }
+
+    protected override void DrawAt(Vector3 drawLoc, bool flip = false)
+    {
+      this.Comps_PostDraw();
+      this.mechanitor?.DrawCommandRadius();
+    }
+
+    public override void DrawGUIOverlay()
+    {
+      this.Drawer.ui.DrawPawnGUIOverlay();
+      for (int index = 0; index < this.AllComps.Count; ++index)
+        this.AllComps[index].DrawGUIOverlay();
+      SilhouetteUtility.DrawGUISilhouette((Thing) this);
+      if (!DebugViewSettings.drawPatherState)
+        return;
+      this.pather.DrawDebugGUI();
+    }
+
+    public override void DrawExtraSelectionOverlays()
+    {
+      base.DrawExtraSelectionOverlays();
+      if (!this.IsPlayerControlled)
+        return;
+      this.pather.curPath?.DrawPath(this);
+      this.jobs.DrawLinesBetweenTargets();
+    }
+
+    public override void TickRare()
+    {
+      base.TickRare();
+      if (!this.Suspended)
+      {
+        this.apparel?.ApparelTrackerTickRare();
+        this.equipment?.EquipmentTrackerTickRare();
+        this.inventory?.InventoryTrackerTickRare();
+      }
+      this.training?.TrainingTrackerTickRare();
+      if (!this.Spawned || !this.RaceProps.IsFlesh || (double) this.AmbientTemperature >= 40.0)
+        return;
+      GenTemperature.PushHeat((Thing) this, (float) (0.30000001192092896 * (double) this.BodySize * 4.1666665077209473 * (this.def.race.Humanlike ? 1.0 : 0.60000002384185791)));
+    }
+
+    public override void Tick()
+    {
+      if (DebugSettings.noAnimals && this.Spawned && this.IsNonMutantAnimal)
+      {
+        this.Destroy(DestroyMode.Vanish);
+      }
+      else
+      {
+        base.Tick();
+        if (Find.TickManager.TicksGame % 250 == 0)
+          this.TickRare();
+        bool suspended;
+        using (new ProfilerBlock("Suspended"))
+          suspended = this.Suspended;
+        if (!suspended)
+        {
+          if (this.Spawned)
+            this.pather.PatherTick();
+          if (this.Spawned)
+          {
+            this.stances.StanceTrackerTick();
+            this.verbTracker.VerbsTick();
+          }
+          if (this.Spawned)
+          {
+            this.roping.RopingTick();
+            this.natives.NativeVerbsTick();
+          }
+          if (!this.IsWorldPawn())
+            this.jobs?.JobTrackerTick();
+          this.health.HealthTick();
+          if (!this.Dead)
+          {
+            this.mindState.MindStateTick();
+            this.carryTracker.CarryHandsTick();
+            if (!this.InCryptosleep && this.RaceProps.Humanlike)
+              this.infectionVectors?.InfectionTick();
+            if (this.showNamePromptOnTick != -1 && this.showNamePromptOnTick == Find.TickManager.TicksGame)
+              Find.WindowStack.Add((Window) this.NamePawnDialog());
+          }
+        }
+        if (!this.Dead)
+          this.needs.NeedsTrackerTick();
+        if (!suspended)
+        {
+          if (this.equipment != null)
+            this.equipment.EquipmentTrackerTick();
+          this.apparel?.ApparelTrackerTick();
+          if (this.interactions != null && this.Spawned)
+            this.interactions.InteractionsTrackerTick();
+          this.caller?.CallTrackerTick();
+          this.skills?.SkillsTick();
+          this.abilities?.AbilitiesTick();
+          this.inventory?.InventoryTrackerTick();
+          this.drafter?.DraftControllerTick();
+          this.relations?.RelationsTrackerTick();
+          if (ModsConfig.RoyaltyActive && this.psychicEntropy != null)
+            this.psychicEntropy.PsychicEntropyTrackerTick();
+          if (this.RaceProps.Humanlike)
+            this.guest.GuestTrackerTick();
+          this.ideo?.IdeoTrackerTick();
+          this.genes?.GeneTrackerTick();
+          if (this.royalty != null && ModsConfig.RoyaltyActive)
+            this.royalty.RoyaltyTrackerTick();
+          if (this.style != null && ModsConfig.IdeologyActive)
+            this.style.StyleTrackerTick();
+          if (this.styleObserver != null && ModsConfig.IdeologyActive)
+            this.styleObserver.StyleObserverTick();
+          if (this.surroundings != null && ModsConfig.IdeologyActive)
+            this.surroundings.SurroundingsTrackerTick();
+          if (ModsConfig.BiotechActive)
+          {
+            this.learning?.LearningTick();
+            PollutionUtility.PawnPollutionTick(this);
+            GasUtility.PawnGasEffectsTick(this);
+          }
+          if (ModsConfig.AnomalyActive && this.Spawned)
+          {
+            this.mutant?.MutantTrackerTick();
+            this.creepjoiner?.Tick();
+            BloodRainUtility.BloodRainTick(this);
+          }
+          if (this.Spawned && this.IsHiddenFromPlayer() && Find.Selector.IsSelected((object) this))
+            Find.Selector.Deselect((object) this);
+          if (!this.IsMutant || this.mutant.Def.shouldTickAge)
+            this.ageTracker.AgeTick();
+          this.records.RecordsTick();
+        }
+        this.guilt?.GuiltTrackerTick();
+        if (this.Spawned && !this.Position.Fogged(this.Map))
+        {
+          if (this.RaceProps.soundAmbience != null && (this.sustainerAmbient == null || this.sustainerAmbient.Ended))
+            this.sustainerAmbient = this.RaceProps.soundAmbience.TrySpawnSustainer(SoundInfo.InMap((TargetInfo) (Thing) this, MaintenanceType.PerTick));
+          this.sustainerAmbient?.Maintain();
+          if (this.pather != null && this.pather.Moving && this.RaceProps.soundMoving != null)
+          {
+            if (this.sustainerMoving == null || this.sustainerMoving.Ended)
+              this.sustainerMoving = this.RaceProps.soundMoving.TrySpawnSustainer(SoundInfo.InMap((TargetInfo) (Thing) this, MaintenanceType.PerTick));
+            this.sustainerMoving?.Maintain();
+          }
+        }
+        this.drawer?.renderer.EffectersTick(suspended || this.IsWorldPawn());
+      }
+    }
+
+    public void ProcessPostTickVisuals(int ticksPassed, CellRect viewRect)
+    {
+      if (this.Suspended || !this.Spawned)
+        return;
+      if (Current.ProgramState != ProgramState.Playing || viewRect.Contains(this.Position))
+        this.Drawer.ProcessPostTickVisuals(ticksPassed);
+      this.rotationTracker.ProcessPostTickVisuals(ticksPassed);
+    }
+
+    public void TickMothballed(int interval)
+    {
+      if (this.Suspended)
+        return;
+      this.ageTracker.AgeTickMothballed(interval);
+      this.records.RecordsTickMothballed(interval);
+    }
+
+    public void Notify_Teleported(bool endCurrentJob = true, bool resetTweenedPos = true)
+    {
+      if (resetTweenedPos)
+        this.Drawer.tweener.Notify_Teleported();
+      this.pather.Notify_Teleported_Int();
+      if (!endCurrentJob || this.jobs?.curJob == null)
+        return;
+      this.jobs.EndCurrentJob(JobCondition.InterruptForced);
+    }
+
+    public virtual SurgicalInspectionOutcome DoSurgicalInspection(Pawn surgeon, out string desc)
+    {
+      if (!ModsConfig.AnomalyActive)
+      {
+        desc = "";
+        return SurgicalInspectionOutcome.Nothing;
+      }
+      bool flag1 = false;
+      bool flag2 = false;
+      StringBuilder sb = new StringBuilder();
+      for (int index = this.health.hediffSet.hediffs.Count - 1; index >= 0; --index)
+      {
+        Hediff hediff = this.health.hediffSet.hediffs[index];
+        HediffComp_SurgeryInspectable comp;
+        if (hediff.TryGetComp<HediffComp_SurgeryInspectable>(out comp))
+        {
+          if (hediff.Visible)
+          {
+            comp.DoSurgicalInspectionVisible(surgeon);
+            if (comp.Props.preventLetterIfPreviouslyDetected)
+              flag2 = true;
+          }
+          else
+          {
+            switch (comp.DoSurgicalInspection(surgeon))
+            {
+              case SurgicalInspectionOutcome.Detected:
+                flag1 = true;
+                if (!string.IsNullOrEmpty(comp.Props.surgicalDetectionDesc))
+                  sb.Append((string) ("\n\n" + comp.Props.surgicalDetectionDesc.Formatted(this.Named("PAWN"), surgeon.Named("SURGEON"))));
+                hediff.SetVisible();
+                continue;
+              case SurgicalInspectionOutcome.DetectedNoLetter:
+                flag2 = true;
+                hediff.SetVisible();
+                continue;
+              default:
+                continue;
+            }
+          }
+        }
+      }
+      if (this.IsCreepJoiner && this.creepjoiner.DoSurgicalInspection(surgeon, sb))
+        flag1 = true;
+      desc = sb.ToString();
+      if (flag2)
+        return SurgicalInspectionOutcome.DetectedNoLetter;
+      return !flag1 ? SurgicalInspectionOutcome.Nothing : SurgicalInspectionOutcome.Detected;
+    }
+
+    public void Notify_BecameVisible()
+    {
+      List<ThingComp> allComps = this.AllComps;
+      for (int index = 0; index < allComps.Count; ++index)
+        allComps[index].Notify_BecameVisible();
+    }
+
+    public void Notify_BecameInvisible()
+    {
+      List<ThingComp> allComps = this.AllComps;
+      for (int index = 0; index < allComps.Count; ++index)
+        allComps[index].Notify_BecameInvisible();
+    }
+
+    public void Notify_ForcedVisible()
+    {
+      List<ThingComp> allComps = this.AllComps;
+      for (int index = 0; index < allComps.Count; ++index)
+        allComps[index].Notify_ForcedVisible();
+    }
+
+    public void Notify_PassedToWorld()
+    {
+      if ((this.Faction == null && this.RaceProps.Humanlike || this.Faction != null && this.Faction.IsPlayer || this.Faction == Faction.OfAncients || this.Faction == Faction.OfAncientsHostile) && !this.Dead && Find.WorldPawns.GetSituation(this) == WorldPawnSituation.Free)
+      {
+        bool tryMedievalOrBetter = this.Faction != null && this.Faction.def.techLevel >= TechLevel.Medieval;
+        if (this.HasExtraHomeFaction() && !this.GetExtraHomeFaction().IsPlayer)
+        {
+          if (this.Faction != this.GetExtraHomeFaction())
+            this.SetFaction(this.GetExtraHomeFaction(), (Pawn) null);
+        }
+        else
+        {
+          Faction faction;
+          if (Find.FactionManager.TryGetRandomNonColonyHumanlikeFaction(out faction, tryMedievalOrBetter))
+          {
+            if (this.Faction != faction)
+              this.SetFaction(faction, (Pawn) null);
+          }
+          else if (Find.FactionManager.TryGetRandomNonColonyHumanlikeFaction(out faction, tryMedievalOrBetter, true))
+          {
+            if (this.Faction != faction)
+              this.SetFaction(faction, (Pawn) null);
+          }
+          else if (this.Faction != null)
+            this.SetFaction((Faction) null, (Pawn) null);
+        }
+      }
+      this.becameWorldPawnTickAbs = GenTicks.TicksAbs;
+      if (!this.IsCaravanMember() && !PawnUtility.IsTravelingInTransportPodWorldObject(this))
+        this.ClearMind();
+      this.relations?.Notify_PassedToWorld();
+      this.drawer?.renderer?.renderTree?.SetDirty();
+    }
+
+    public void Notify_AddBedThoughts()
+    {
+      foreach (ThingComp allComp in this.AllComps)
+        allComp.Notify_AddBedThoughts(this);
+      this.Ideo?.Notify_AddBedThoughts(this);
+    }
+
+    public override void PreApplyDamage(ref DamageInfo dinfo, out bool absorbed)
+    {
+      float num1 = 1f;
+      if (ModsConfig.BiotechActive && this.genes != null)
+        num1 *= this.genes.FactorForDamage(dinfo);
+      float num2 = num1 * this.health.FactorForDamage(dinfo);
+      dinfo.SetAmount(dinfo.Amount * num2);
+      base.PreApplyDamage(ref dinfo, out absorbed);
+      if (absorbed)
+        return;
+      this.health.PreApplyDamage(dinfo, out absorbed);
+    }
+
+    public override void PostApplyDamage(DamageInfo dinfo, float totalDamageDealt)
+    {
+      base.PostApplyDamage(dinfo, totalDamageDealt);
+      if (dinfo.Def.ExternalViolenceFor((Thing) this))
+        this.records.AddTo(RecordDefOf.DamageTaken, totalDamageDealt);
+      if (dinfo.Def.makesBlood && this.health.CanBleed && !dinfo.InstantPermanentInjury && (double) totalDamageDealt > 0.0 && Rand.Chance(0.5f))
+        this.health.DropBloodFilth();
+      this.health.PostApplyDamage(dinfo, totalDamageDealt);
+      if (this.Dead)
+        return;
+      this.mindState.Notify_DamageTaken(dinfo);
+      if (!ModsConfig.AnomalyActive || !(dinfo.Instigator is Pawn instigator))
+        return;
+      List<InfectionPathwayDef> defs = dinfo.Def.isRanged ? instigator.kindDef.rangedAttackInfectionPathways : instigator.kindDef.meleeAttackInfectionPathways;
+      if (defs == null)
+        return;
+      InfectionPathwayUtility.AddInfectionPathways(defs, this, instigator);
+    }
+
+    public override Thing SplitOff(int count)
+    {
+      return count <= 0 || count >= this.stackCount ? base.SplitOff(count) : throw new NotImplementedException("Split off on Pawns is not supported (unless we're taking a full stack).");
+    }
+
+    private float TicksPerMove(bool diagonal)
+    {
+      float statValue = this.GetStatValue(StatDefOf.MoveSpeed);
+      if (this.Downed && this.health.CanCrawl)
+        statValue = this.GetStatValue(StatDefOf.CrawlSpeed);
+      if (RestraintsUtility.InRestraints(this))
+        statValue *= 0.35f;
+      if (this.carryTracker?.CarriedThing != null && this.carryTracker.CarriedThing.def.category == ThingCategory.Pawn)
+        statValue *= 0.6f;
+      float num1 = statValue / 60f;
+      float num2;
+      if ((double) num1 == 0.0)
+      {
+        num2 = 450f;
+      }
+      else
+      {
+        num2 = 1f / num1;
+        if (this.Spawned && !this.Map.roofGrid.Roofed(this.Position))
+          num2 /= this.Map.weatherManager.CurMoveSpeedMultiplier;
+        if (diagonal)
+          num2 *= 1.41421f;
+      }
+      float num3 = Mathf.Clamp(num2, 1f, 450f);
+      return this.debugMaxMoveSpeed ? 1f : num3;
+    }
+
+    private void DoKillSideEffects(DamageInfo? dinfo, Hediff exactCulprit, bool spawned)
+    {
+      if (Current.ProgramState == ProgramState.Playing)
+        Find.Storyteller.Notify_PawnEvent(this, AdaptationEvent.Died);
+      if (this.IsColonist && !this.wasLeftBehindStartingPawn)
+        Find.StoryWatcher.statsRecord.Notify_ColonistKilled();
+      DamageInfo valueOrDefault;
+      if (spawned)
+      {
+        if (dinfo.HasValue)
+        {
+          valueOrDefault = dinfo.Value;
+          if (valueOrDefault.Def.ExternalViolenceFor((Thing) this))
+            goto label_8;
+        }
+        if (exactCulprit?.sourceDef == null || !exactCulprit.sourceDef.IsWeapon)
+          goto label_9;
+label_8:
+        LifeStageUtility.PlayNearestLifestageSound(this, (Func<LifeStageAge, SoundDef>) (lifeStage => lifeStage.soundDeath), (Func<GeneDef, SoundDef>) (gene => gene.soundDeath), (Func<MutantDef, SoundDef>) (mutantDef => mutantDef.soundDeath));
+      }
+label_9:
+      Thing thing1;
+      if (!dinfo.HasValue)
+      {
+        thing1 = (Thing) null;
+      }
+      else
+      {
+        valueOrDefault = dinfo.GetValueOrDefault();
+        thing1 = valueOrDefault.Instigator;
+      }
+      if (thing1 != null)
+      {
+        valueOrDefault = dinfo.Value;
+        if (valueOrDefault.Instigator is Pawn instigator)
+        {
+          RecordsUtility.Notify_PawnKilled(this, instigator);
+          instigator.equipment?.Notify_KilledPawn();
+          if (this.RaceProps.Humanlike)
+            instigator.needs?.TryGetNeed<Need_KillThirst>()?.Notify_KilledPawn(dinfo);
+          if (instigator.health.hediffSet != null)
+          {
+            for (int index = 0; index < instigator.health.hediffSet.hediffs.Count; ++index)
+              instigator.health.hediffSet.hediffs[index].Notify_KilledPawn(this, dinfo);
+          }
+          if (HistoryEventUtility.IsKillingInnocentAnimal(instigator, this))
+            Find.HistoryEventsManager.RecordEvent(new HistoryEvent(HistoryEventDefOf.KilledInnocentAnimal, instigator.Named(HistoryEventArgsNames.Doer), this.Named(HistoryEventArgsNames.Victim)));
+        }
+      }
+      TaleUtility.Notify_PawnDied(this, dinfo);
+      if (!spawned)
+        return;
+      BattleLog battleLog = Find.BattleLog;
+      RulePackDef deathRules = this.RaceProps.DeathActionWorker.DeathRules;
+      Thing thing2;
+      if (!dinfo.HasValue)
+      {
+        thing2 = (Thing) null;
+      }
+      else
+      {
+        valueOrDefault = dinfo.GetValueOrDefault();
+        thing2 = valueOrDefault.Instigator;
+      }
+      Pawn initiator = thing2 as Pawn;
+      Hediff culpritHediff = exactCulprit;
+      BodyPartRecord culpritTargetDef;
+      if (!dinfo.HasValue)
+      {
+        culpritTargetDef = (BodyPartRecord) null;
+      }
+      else
+      {
+        valueOrDefault = dinfo.GetValueOrDefault();
+        culpritTargetDef = valueOrDefault.HitPart;
+      }
+      BattleLogEntry_StateTransition entry = new BattleLogEntry_StateTransition((Thing) this, deathRules, initiator, culpritHediff, culpritTargetDef);
+      battleLog.Add((LogEntry) entry);
+    }
+
+    private void PreDeathPawnModifications(DamageInfo? dinfo, Map map)
+    {
+      this.health.surgeryBills.Clear();
+      for (int index = 0; index < this.health.hediffSet.hediffs.Count; ++index)
+        this.health.hediffSet.hediffs[index].Notify_PawnKilled();
+      this.apparel?.Notify_PawnKilled(dinfo);
+      this.relations?.Notify_PawnKilled(dinfo, map);
+      this.connections?.Notify_PawnKilled();
+      this.meleeVerbs.Notify_PawnKilled();
+    }
+
+    private void DropBeforeDying(DamageInfo? dinfo, ref Map map, ref bool spawned)
+    {
+      if (this.ParentHolder is Pawn_CarryTracker parentHolder && this.holdingOwner.TryDrop((Thing) this, parentHolder.pawn.Position, parentHolder.pawn.Map, ThingPlaceMode.Near, out Thing _))
+      {
+        map = parentHolder.pawn.Map;
+        spawned = true;
+      }
+      PawnDiedOrDownedThoughtsUtility.RemoveLostThoughts(this);
+      PawnDiedOrDownedThoughtsUtility.RemoveResuedRelativeThought(this);
+      PawnDiedOrDownedThoughtsUtility.TryGiveThoughts(this, dinfo, PawnDiedOrDownedThoughtsKind.Died);
+      if (!this.IsNonMutantAnimal)
+        return;
+      PawnDiedOrDownedThoughtsUtility.GiveVeneratedAnimalDiedThoughts(this, map);
+    }
+
+    private void RemoveFromHoldingContainer(ref Map map, ref bool spawned, DamageInfo? dinfo)
+    {
+      if (!ModsConfig.AnomalyActive || !(this.ParentHolder is Building_HoldingPlatform parentHolder) || !parentHolder.Spawned)
+        return;
+      parentHolder.Notify_PawnDied(this, dinfo);
+      spawned = true;
+      map = parentHolder.Map;
+    }
+
+    public override void Kill(DamageInfo? dinfo, Hediff exactCulprit = null)
+    {
+      int num1 = 0;
+      this.health.isBeingKilled = true;
+      try
+      {
+        num1 = 1;
+        IntVec3 positionHeld = this.PositionHeld;
+        Map map1 = this.Map;
+        Map map2 = this.prevMap = this.MapHeld;
+        Lord lord1 = this.GetLord();
+        bool spawned = this.Spawned;
+        bool anyParentSpawned = this.SpawnedOrAnyParentSpawned;
+        bool flag1 = this.IsWorldPawn();
+        bool? isGuilty = this.guilt?.IsGuilty;
+        Caravan caravan = this.GetCaravan();
+        bool isShambler = this.IsShambler;
+        Building_Grave assignedGrave = (Building_Grave) null;
+        if (this.ownership != null)
+          assignedGrave = this.ownership.AssignedGrave;
+        Building_Bed currentBed = this.CurrentBed();
+        this.RemoveFromHoldingContainer(ref map1, ref spawned, dinfo);
+        ThingOwner thingOwner = (ThingOwner) null;
+        bool containerEnclosed = this.InContainerEnclosed;
+        if (containerEnclosed)
+        {
+          thingOwner = this.holdingOwner;
+          thingOwner.Remove((Thing) this);
+        }
+        bool flag2 = false;
+        bool flag3 = false;
+        bool flag4 = false;
+        if (Current.ProgramState == ProgramState.Playing && map1 != null)
+        {
+          flag2 = map1.designationManager.DesignationOn((Thing) this, DesignationDefOf.Hunt) != null;
+          flag3 = this.ShouldBeSlaughtered();
+          foreach (Lord lord2 in map1.lordManager.lords)
+          {
+            if (lord2.LordJob is LordJob_Ritual lordJob && lordJob.pawnsDeathIgnored.Contains(this))
+            {
+              flag4 = true;
+              break;
+            }
+          }
+        }
+        bool flag5 = PawnUtility.ShouldSendNotificationAbout(this) && (!(flag3 | flag4) || !dinfo.HasValue || dinfo.Value.Def != DamageDefOf.ExecutionCut) && !this.ForceNoDeathNotification;
+        num1 = 2;
+        this.DoKillSideEffects(dinfo, exactCulprit, spawned);
+        num1 = 3;
+        this.PreDeathPawnModifications(dinfo, map1);
+        num1 = 4;
+        this.DropBeforeDying(dinfo, ref map1, ref spawned);
+        num1 = 5;
+        this.health.SetDead();
+        if (this.health.deflectionEffecter != null)
+        {
+          this.health.deflectionEffecter.Cleanup();
+          this.health.deflectionEffecter = (Effecter) null;
+        }
+        if (this.health.woundedEffecter != null)
+        {
+          this.health.woundedEffecter.Cleanup();
+          this.health.woundedEffecter = (Effecter) null;
+        }
+        caravan?.Notify_MemberDied(this);
+        Lord lord3 = this.GetLord();
+        lord3?.Notify_PawnLost(this, PawnLostCondition.Killed, dinfo);
+        if (ModsConfig.AnomalyActive)
+          Find.Anomaly.Notify_PawnDied(this);
+        if (spawned)
+          this.DropAndForbidEverything();
+        if (spawned)
+          GenLeaving.DoLeavingsFor((Thing) this, map1, DestroyMode.KillFinalize);
+        int num2 = this.DeSpawnOrDeselect() ? 1 : 0;
+        if (this.royalty != null)
+          this.royalty.Notify_PawnKilled();
+        Corpse corpse = (Corpse) null;
+        if (!PawnGenerator.IsPawnBeingGeneratedAndNotAllowsDead(this) && this.RaceProps.corpseDef != null)
+        {
+          if (containerEnclosed)
+          {
+            corpse = this.MakeCorpse(assignedGrave, currentBed);
+            if (!thingOwner.TryAdd((Thing) corpse))
+            {
+              corpse.Destroy(DestroyMode.Vanish);
+              corpse = (Corpse) null;
+            }
+          }
+          else if (anyParentSpawned)
+          {
+            if (this.holdingOwner != null)
+              this.holdingOwner.Remove((Thing) this);
+            corpse = this.MakeCorpse(assignedGrave, currentBed);
+            if (GenPlace.TryPlaceThing((Thing) corpse, positionHeld, map2, ThingPlaceMode.Direct))
+            {
+              corpse.Rotation = this.Rotation;
+              if (HuntJobUtility.WasKilledByHunter(this, dinfo))
+                ((Pawn) dinfo.Value.Instigator).Reserve((LocalTargetInfo) (Thing) corpse, ((Pawn) dinfo.Value.Instigator).CurJob);
+              else if (!flag2 && !flag3)
+                corpse.SetForbiddenIfOutsideHomeArea();
+              if (this.GetAttachment(ThingDefOf.Fire) is Fire attachment)
+                FireUtility.TryStartFireIn(corpse.Position, corpse.Map, attachment.CurrentSize(), attachment.instigator);
+            }
+            else
+            {
+              corpse.Destroy(DestroyMode.Vanish);
+              corpse = (Corpse) null;
+            }
+          }
+          else if (caravan != null && caravan.Spawned)
+          {
+            corpse = this.MakeCorpse(assignedGrave, currentBed);
+            caravan.AddPawnOrItem((Thing) corpse, true);
+          }
+          else if (this.holdingOwner != null || this.IsWorldPawn())
+            Corpse.PostCorpseDestroy(this);
+          else
+            corpse = this.MakeCorpse(assignedGrave, currentBed);
+        }
+        if (corpse != null)
+        {
+          Hediff firstHediffOfDef1 = this.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.ToxicBuildup);
+          Hediff firstHediffOfDef2 = this.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.Scaria);
+          CompRottable comp;
+          if ((comp = corpse.GetComp<CompRottable>()) != null && (firstHediffOfDef1 != null && (double) Rand.Value < (double) firstHediffOfDef1.Severity || firstHediffOfDef2 != null && Rand.Chance(Find.Storyteller.difficulty.scariaRotChance)))
+            comp.RotImmediately();
+          if (this.addCorpseToLord && lord3 != null)
+            lord3.AddCorpse(corpse);
+        }
+        this.Drawer.renderer.SetAllGraphicsDirty();
+        if (ModsConfig.AnomalyActive && this.kindDef == PawnKindDefOf.Revenant || this.kindDef.defName == "RevenantTrailer")
+          RevenantUtility.OnRevenantDeath(this, map1);
+        this.duplicate?.Notify_PawnKilled();
+        this.Drawer.renderer.SetAnimation((AnimationDef) null);
+        if (!this.Destroyed)
+          base.Kill(dinfo, exactCulprit);
+        PawnComponentsUtility.RemoveComponentsOnKilled(this);
+        this.health.hediffSet.DirtyCache();
+        PortraitsCache.SetDirty(this);
+        GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(this);
+        if (num2 != 0 && corpse != null && !corpse.Destroyed)
+          Find.Selector.Select((object) corpse, false, false);
+        num1 = 6;
+        this.health.hediffSet.Notify_PawnDied(dinfo, exactCulprit);
+        if (this.IsMutant)
+          this.mutant.Notify_Died(corpse, dinfo, exactCulprit);
+        this.genes?.Notify_PawnDied(dinfo, exactCulprit);
+        Faction homeFaction = this.HomeFaction;
+        if (homeFaction != null)
+        {
+          DamageInfo? dinfo1 = dinfo;
+          int num3 = flag1 ? 1 : 0;
+          bool? nullable = isGuilty;
+          bool flag6 = true;
+          int num4 = nullable.GetValueOrDefault() == flag6 & nullable.HasValue ? 1 : 0;
+          Map map3 = map2;
+          homeFaction.Notify_MemberDied(this, dinfo1, num3 != 0, num4 != 0, map3);
+        }
+        if (corpse != null)
+        {
+          if (this.RaceProps.DeathActionWorker != null & spawned && !isShambler)
+            this.RaceProps.DeathActionWorker.PawnDied(corpse, lord1);
+          if (Find.Scenario != null)
+            Find.Scenario.Notify_PawnDied(corpse);
+        }
+        if (this.Faction != null && this.Faction.IsPlayer)
+          BillUtility.Notify_ColonistUnavailable(this);
+        if (anyParentSpawned)
+          GenHostility.Notify_PawnLostForTutor(this, map2);
+        if (this.Faction != null && this.Faction.IsPlayer && Current.ProgramState == ProgramState.Playing)
+          Find.ColonistBar.MarkColonistsDirty();
+        this.psychicEntropy?.Notify_PawnDied();
+        try
+        {
+          this.Ideo?.Notify_MemberDied(this);
+          this.Ideo?.Notify_MemberLost(this, map1);
+        }
+        catch (Exception ex)
+        {
+          Log.Error("Error while notifying ideo of pawn death: " + (object) ex);
+        }
+        if (this.IsMutant && this.mutant.Def.clearMutantStatusOnDeath)
+        {
+          if (this.mutant.HasTurned)
+            this.mutant.Revert(true);
+          else
+            this.mutant = (Pawn_MutantTracker) null;
+        }
+        if (flag5)
+          this.health.NotifyPlayerOfKilled(dinfo, exactCulprit, caravan);
+        Find.QuestManager.Notify_PawnKilled(this, dinfo);
+        Find.FactionManager.Notify_PawnKilled(this);
+        Find.IdeoManager.Notify_PawnKilled(this);
+        if (ModsConfig.BiotechActive && MechanitorUtility.IsMechanitor(this))
+          Find.History.Notify_MechanitorDied();
+        this.Notify_DisabledWorkTypesChanged();
+        Find.BossgroupManager.Notify_PawnKilled(this);
+        if (this.IsCreepJoiner)
+          this.creepjoiner.Notify_CreepJoinerKilled();
+        this.health.isBeingKilled = false;
+      }
+      catch (Exception ex)
+      {
+        Log.Error(string.Format("Error while killing {0} during phase {1}: {2}", (object) this.ToStringSafe<Pawn>(), (object) num1, (object) ex));
+      }
+    }
+
+    public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
+    {
+      if (mode != DestroyMode.Vanish && mode != DestroyMode.KillFinalize)
+        Log.Error("Destroyed pawn " + (object) this + " with unsupported mode " + (object) mode + ".");
+      Map mapHeld = this.MapHeld;
+      base.Destroy(mode);
+      Find.WorldPawns.Notify_PawnDestroyed(this);
+      if (this.ownership != null)
+      {
+        Building_Grave assignedGrave = this.ownership.AssignedGrave;
+        this.ownership.UnclaimAll();
+        if (mode == DestroyMode.KillFinalize && assignedGrave != null)
+          assignedGrave.CompAssignableToPawn.TryAssignPawn(this);
+      }
+      this.ClearMind(clearInspiration: true);
+      Lord lord = this.GetLord();
+      if (lord != null)
+      {
+        PawnLostCondition cond = mode == DestroyMode.KillFinalize ? PawnLostCondition.Killed : PawnLostCondition.Vanished;
+        lord.Notify_PawnLost(this, cond);
+      }
+      if (Current.ProgramState == ProgramState.Playing)
+      {
+        Find.GameEnder.CheckOrUpdateGameOver();
+        Find.TaleManager.Notify_PawnDestroyed(this);
+      }
+      foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive.Where<Pawn>((Func<Pawn, bool>) (p => p.playerSettings != null && p.playerSettings.Master == this)))
+        pawn.playerSettings.Master = (Pawn) null;
+      this.equipment?.Notify_PawnDied();
+      if (ModsConfig.AnomalyActive && Find.Anomaly != null)
+        Find.Anomaly.Notify_PawnDied(this);
+      if (mode != DestroyMode.KillFinalize)
+      {
+        this.equipment?.DestroyAllEquipment();
+        this.inventory?.DestroyAll();
+        this.apparel?.DestroyAll();
+      }
+      WorldPawns worldPawns = Find.WorldPawns;
+      if (!worldPawns.IsBeingDiscarded(this) && !worldPawns.Contains(this))
+        worldPawns.PassToWorld(this);
+      if (this.Faction.IsPlayerSafe())
+        this.Ideo?.RecacheColonistBelieverCount();
+      this.relations?.Notify_PawnDestroyed(mode);
+      this.Drawer?.renderer?.renderTree?.SetDirty();
+    }
+
+    public override void DeSpawn(DestroyMode mode = DestroyMode.Vanish)
+    {
+      Map map = this.Map;
+      if (this.jobs?.curJob != null)
+        this.jobs.StopAll();
+      base.DeSpawn(mode);
+      this.pather?.StopDead();
+      this.roping?.Notify_DeSpawned();
+      this.mindState.droppedWeapon = (Thing) null;
+      this.needs?.mood?.thoughts.situational.Notify_SituationalThoughtsDirty();
+      this.meleeVerbs?.Notify_PawnDespawned();
+      this.mechanitor?.Notify_DeSpawned(mode);
+      this.ClearAllReservations(false);
+      if (map != null)
+      {
+        map.mapPawns.DeRegisterPawn(this);
+        map.autoSlaughterManager.Notify_PawnDespawned();
+      }
+      PawnComponentsUtility.RemoveComponentsOnDespawned(this);
+      if (this.sustainerAmbient != null)
+      {
+        this.sustainerAmbient.End();
+        this.sustainerAmbient = (Sustainer) null;
+      }
+      if (this.sustainerMoving == null)
+        return;
+      this.sustainerMoving.End();
+      this.sustainerMoving = (Sustainer) null;
+    }
+
+    public override void Discard(bool silentlyRemoveReferences = false)
+    {
+      if (Find.WorldPawns.Contains(this))
+      {
+        Log.Warning("Tried to discard a world pawn " + (object) this + ".");
+      }
+      else
+      {
+        base.Discard(silentlyRemoveReferences);
+        if (this.relations != null)
+        {
+          if (this.RaceProps.Humanlike && this.relations.Children.Count<Pawn>((Func<Pawn, bool>) (x => !x.markedForDiscard)) > 1)
+          {
+            foreach (Pawn child in this.relations.Children)
+            {
+              if (!child.markedForDiscard)
+              {
+                DirectPawnRelation directRelation = child.relations.GetDirectRelation(PawnRelationDefOf.Parent, this);
+                child.relations.ElevateToVirtualRelation(directRelation);
+              }
+            }
+          }
+          this.relations.ClearAllRelations();
+        }
+        if (Current.ProgramState == ProgramState.Playing)
+        {
+          Find.PlayLog.Notify_PawnDiscarded(this, silentlyRemoveReferences);
+          Find.BattleLog.Notify_PawnDiscarded(this, silentlyRemoveReferences);
+          Find.TaleManager.Notify_PawnDiscarded(this, silentlyRemoveReferences);
+          Find.QuestManager.Notify_PawnDiscarded(this);
+        }
+        foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
+          pawn.needs?.mood?.thoughts.memories.Notify_PawnDiscarded(this);
+        Corpse.PostCorpseDestroy(this, true);
+      }
+    }
+
+    public Corpse MakeCorpse(Building_Grave assignedGrave, Building_Bed currentBed)
+    {
+      return this.MakeCorpse(assignedGrave, currentBed != null, currentBed != null ? currentBed.Rotation.AsAngle : 0.0f);
+    }
+
+    public Corpse MakeCorpse(Building_Grave assignedGrave, bool inBed, float bedRotation)
+    {
+      if (this.holdingOwner != null)
+      {
+        Log.Warning("We can't make corpse because the pawn is in a ThingOwner. Remove him from the container first. This should have been already handled before calling this method. holder=" + (object) this.ParentHolder);
+        return (Corpse) null;
+      }
+      if (this.RaceProps.corpseDef == null)
+        return (Corpse) null;
+      Corpse corpse = (Corpse) ThingMaker.MakeThing(this.RaceProps.corpseDef);
+      corpse.InnerPawn = this;
+      if (assignedGrave != null)
+        corpse.InnerPawn.ownership.ClaimGrave(assignedGrave);
+      if (inBed)
+        corpse.InnerPawn.Drawer.renderer.wiggler.SetToCustomRotation(bedRotation + 180f);
+      return corpse;
+    }
+
+    public void ExitMap(bool allowedToJoinOrCreateCaravan, Rot4 exitDir)
+    {
+      if (this.IsWorldPawn())
+      {
+        Log.Warning("Called ExitMap() on world pawn " + (object) this);
+      }
+      else
+      {
+        this.Ideo?.Notify_MemberLost(this, this.Map);
+        if (allowedToJoinOrCreateCaravan && CaravanExitMapUtility.CanExitMapAndJoinOrCreateCaravanNow(this))
+        {
+          CaravanExitMapUtility.ExitMapAndJoinOrCreateCaravan(this, exitDir);
+        }
+        else
+        {
+          this.GetLord()?.Notify_PawnLost(this, PawnLostCondition.ExitedMap);
+          if (this.carryTracker?.CarriedThing != null)
+          {
+            if (this.carryTracker.CarriedThing is Pawn carriedThing)
+            {
+              if (this.Faction != null && this.Faction != carriedThing.Faction)
+              {
+                this.Faction.kidnapped.Kidnap(carriedThing, this);
+              }
+              else
+              {
+                if (!this.teleporting)
+                  this.carryTracker.innerContainer.Remove((Thing) carriedThing);
+                carriedThing.teleporting = this.teleporting;
+                carriedThing.ExitMap(false, exitDir);
+                carriedThing.teleporting = false;
+              }
+            }
+            else
+              this.carryTracker.CarriedThing.Destroy();
+            if (!this.teleporting || carriedThing == null)
+              this.carryTracker.innerContainer.Clear();
+          }
+          bool flag1 = ThingOwnerUtility.AnyParentIs<ActiveDropPodInfo>((Thing) this) || ThingOwnerUtility.AnyParentIs<TravelingTransportPods>((Thing) this);
+          bool flag2 = ((this.IsCaravanMember() ? 1 : (this.teleporting ? 1 : 0)) | (flag1 ? 1 : 0)) != 0;
+          bool flag3 = !flag2 || !this.IsPrisoner && !this.IsSlave && !flag1 || this.guest != null && this.guest.Released;
+          bool freed = flag3 && (this.IsPrisoner || this.IsSlave) && this.guest != null && this.guest.Released;
+          bool flag4 = freed || this.guest != null && this.guest.HostFaction == Faction.OfPlayer;
+          if (flag3 && !flag2)
+          {
+            foreach (Thing orInventoryThing in this.EquippedWornOrInventoryThings)
+              orInventoryThing.GetStyleSourcePrecept()?.Notify_ThingLost(orInventoryThing);
+          }
+          this.Faction?.Notify_MemberExitedMap(this, freed);
+          if (this.Faction == Faction.OfPlayer && this.IsSlave && this.SlaveFaction != null && this.SlaveFaction != Faction.OfPlayer && this.guest.Released)
+            this.SlaveFaction.Notify_MemberExitedMap(this, freed);
+          if (this.ownership != null & flag4)
+            this.ownership.UnclaimAll();
+          if (this.guest != null)
+          {
+            int num = this.IsPrisonerOfColony ? 1 : 0;
+            if (freed)
+              this.guest.SetGuestStatus((Faction) null);
+            if (num != 0)
+            {
+              this.guest.SetNoInteraction();
+              if (!this.guest.Released & flag3)
+                GuestUtility.Notify_PrisonerEscaped(this);
+            }
+            this.guest.Released = false;
+          }
+          this.DeSpawnOrDeselect();
+          this.inventory.UnloadEverything = false;
+          if (flag3)
+            this.ClearMind();
+          this.relations?.Notify_ExitedMap();
+          Find.WorldPawns.PassToWorld(this);
+          QuestUtility.SendQuestTargetSignals(this.questTags, "LeftMap", this.Named("SUBJECT"));
+          Find.FactionManager.Notify_PawnLeftMap(this);
+          Find.IdeoManager.Notify_PawnLeftMap(this);
+        }
+      }
+    }
+
+    public override void PreTraded(TradeAction action, Pawn playerNegotiator, ITrader trader)
+    {
+      base.PreTraded(action, playerNegotiator, trader);
+      if (this.SpawnedOrAnyParentSpawned)
+        this.DropAndForbidEverything();
+      this.ownership?.UnclaimAll();
+      if (action == TradeAction.PlayerSells)
+      {
+        Faction other = this.GetExtraHomeFaction() ?? this.GetExtraHostFaction();
+        if (other != null && other != Faction.OfPlayer)
+          Faction.OfPlayer.TryAffectGoodwillWith(other, Faction.OfPlayer.GoodwillToMakeHostile(other), reason: HistoryEventDefOf.MemberSold, lookTarget: new GlobalTargetInfo?((GlobalTargetInfo) (Thing) this));
+      }
+      this.guest?.SetGuestStatus((Faction) null);
+      switch (action)
+      {
+        case TradeAction.PlayerBuys:
+          if (this.guest != null && this.guest.joinStatus == JoinStatus.JoinAsSlave)
+          {
+            this.guest.SetGuestStatus(Faction.OfPlayer, RimWorld.GuestStatus.Slave);
+            break;
+          }
+          this.needs.mood?.thoughts.memories.TryGainMemory(ThoughtDefOf.FreedFromSlavery);
+          this.SetFaction(Faction.OfPlayer, (Pawn) null);
+          break;
+        case TradeAction.PlayerSells:
+          if (this.RaceProps.Humanlike)
+            TaleRecorder.RecordTale(TaleDefOf.SoldPrisoner, (object) playerNegotiator, (object) this, (object) trader);
+          if (this.Faction != null)
+            this.SetFaction((Faction) null, (Pawn) null);
+          if (this.RaceProps.IsFlesh)
+          {
+            this.relations.Notify_PawnSold(playerNegotiator);
+            break;
+          }
+          break;
+      }
+      this.ClearMind();
+    }
+
+    public void PreKidnapped(Pawn kidnapper)
+    {
+      Find.Storyteller.Notify_PawnEvent(this, AdaptationEvent.Kidnapped);
+      if (this.IsColonist && kidnapper != null)
+        TaleRecorder.RecordTale(TaleDefOf.KidnappedColonist, (object) kidnapper, (object) this);
+      this.ownership?.UnclaimAll();
+      if (this.guest != null && !this.guest.IsSlave)
+        this.guest.SetGuestStatus((Faction) null);
+      if (this.RaceProps.IsFlesh)
+        this.relations.Notify_PawnKidnapped();
+      this.ClearMind();
+    }
+
+    public override bool ClaimableBy(Faction by, StringBuilder reason = null) => false;
+
+    public override bool AdoptableBy(Faction by, StringBuilder reason = null)
+    {
+      if (this.Faction == by)
+        return false;
+      Pawn_AgeTracker ageTracker = this.ageTracker;
+      int num;
+      if (ageTracker == null)
+      {
+        num = 0;
+      }
+      else
+      {
+        bool? claimable = ageTracker.CurLifeStage?.claimable;
+        bool flag = false;
+        num = claimable.GetValueOrDefault() == flag & claimable.HasValue ? 1 : 0;
+      }
+      return num == 0 && !this.FactionPreventsClaimingOrAdopting(this.Faction, false, reason);
+    }
+
+    public override void SetFaction(Faction newFaction, Pawn recruiter = null)
+    {
+      if (newFaction == this.Faction)
+      {
+        Log.Warning("Used SetFaction to change " + this.ToStringSafe<Pawn>() + " to same faction " + newFaction.ToStringSafe<Faction>());
+      }
+      else
+      {
+        Faction faction = this.Faction;
+        this.guest?.SetGuestStatus((Faction) null);
+        if (this.Spawned)
+        {
+          this.Map.mapPawns.DeRegisterPawn(this);
+          this.Map.pawnDestinationReservationManager.ReleaseAllClaimedBy(this);
+          this.Map.designationManager.RemoveAllDesignationsOn((Thing) this);
+          this.Map.autoSlaughterManager.Notify_PawnChangedFaction();
+        }
+        if ((newFaction == Faction.OfPlayer || this.Faction == Faction.OfPlayer) && Current.ProgramState == ProgramState.Playing)
+          Find.ColonistBar.MarkColonistsDirty();
+        this.GetLord()?.Notify_PawnLost(this, PawnLostCondition.ChangedFaction);
+        if (PawnUtility.IsFactionLeader(this))
+        {
+          Faction factionLeaderFaction = PawnUtility.GetFactionLeaderFaction(this);
+          if (newFaction != factionLeaderFaction && !this.HasExtraHomeFaction(factionLeaderFaction) && !this.HasExtraMiniFaction(factionLeaderFaction))
+            factionLeaderFaction.Notify_LeaderLost();
+        }
+        if (newFaction == Faction.OfPlayer && this.RaceProps.Humanlike && !this.IsQuestLodger())
+          this.ChangeKind(newFaction.def.basicMemberKind);
+        base.SetFaction(newFaction);
+        PawnComponentsUtility.AddAndRemoveDynamicComponents(this);
+        if (this.Faction != null && this.Faction.IsPlayer)
+        {
+          this.workSettings?.EnableAndInitialize();
+          Find.StoryWatcher.watcherPopAdaptation.Notify_PawnEvent(this, PopAdaptationEvent.GainedColonist);
+        }
+        if (this.Drafted)
+          this.drafter.Drafted = false;
+        ReachabilityUtility.ClearCacheFor(this);
+        this.health.surgeryBills.Clear();
+        if (this.Spawned)
+          this.Map.mapPawns.RegisterPawn(this);
+        this.GenerateNecessaryName();
+        this.playerSettings?.ResetMedicalCare();
+        this.ClearMind(true);
+        if (!this.Dead && this.needs.mood != null)
+          this.needs.mood.thoughts.situational.Notify_SituationalThoughtsDirty();
+        if (this.Spawned)
+          this.Map.attackTargetsCache.UpdateTarget((IAttackTarget) this);
+        Find.GameEnder.CheckOrUpdateGameOver();
+        AddictionUtility.CheckDrugAddictionTeachOpportunity(this);
+        this.needs?.AddOrRemoveNeedsAsAppropriate();
+        this.playerSettings?.Notify_FactionChanged();
+        this.relations?.Notify_ChangedFaction();
+        if (this.IsNonMutantAnimal && newFaction == Faction.OfPlayer)
+        {
+          this.training.SetWantedRecursive(TrainableDefOf.Tameness, true);
+          this.training.Train(TrainableDefOf.Tameness, recruiter, true);
+          if (this.RaceProps.Roamer && this.mindState != null)
+            this.mindState.lastStartRoamCooldownTick = new int?(Find.TickManager.TicksGame);
+        }
+        if (faction == Faction.OfPlayer)
+          BillUtility.Notify_ColonistUnavailable(this);
+        if (newFaction == Faction.OfPlayer)
+        {
+          Find.StoryWatcher.statsRecord.UpdateGreatestPopulation();
+          Find.World.StoryState.RecordPopulationIncrease();
+        }
+        newFaction?.Notify_PawnJoined(this);
+        this.Ideo?.Notify_MemberChangedFaction(this, faction, newFaction);
+        this.ageTracker?.ResetAgeReversalDemand(Pawn_AgeTracker.AgeReversalReason.Recruited);
+        this.roping?.BreakAllRopes();
+        if (ModsConfig.BiotechActive)
+          this.mechanitor?.Notify_ChangedFaction();
+        this.creepjoiner?.Notify_ChangedFaction();
+        if (faction == null)
+          return;
+        Find.FactionManager.Notify_PawnLeftFaction(faction);
+      }
+    }
+
+    public void ClearMind(bool ifLayingKeepLaying = false, bool clearInspiration = false, bool clearMentalState = true)
+    {
+      this.pather?.StopDead();
+      this.mindState?.Reset(clearInspiration, clearMentalState);
+      this.jobs?.StopAll(ifLayingKeepLaying);
+      this.VerifyReservations();
+    }
+
+    public void ClearAllReservations(bool releaseDestinationsOnlyIfObsolete = true)
+    {
+      List<Map> maps = Find.Maps;
+      for (int index = 0; index < maps.Count; ++index)
+      {
+        if (releaseDestinationsOnlyIfObsolete)
+          maps[index].pawnDestinationReservationManager.ReleaseAllObsoleteClaimedBy(this);
+        else
+          maps[index].pawnDestinationReservationManager.ReleaseAllClaimedBy(this);
+        maps[index].reservationManager.ReleaseAllClaimedBy(this);
+        maps[index].enrouteManager.ReleaseAllClaimedBy(this);
+        maps[index].physicalInteractionReservationManager.ReleaseAllClaimedBy(this);
+        maps[index].attackTargetReservationManager.ReleaseAllClaimedBy(this);
+      }
+    }
+
+    public void ClearReservationsForJob(Job job)
+    {
+      List<Map> maps = Find.Maps;
+      for (int index = 0; index < maps.Count; ++index)
+      {
+        maps[index].pawnDestinationReservationManager.ReleaseClaimedBy(this, job);
+        maps[index].reservationManager.ReleaseClaimedBy(this, job);
+        maps[index].enrouteManager.ReleaseAllClaimedBy(this);
+        maps[index].physicalInteractionReservationManager.ReleaseClaimedBy(this, job);
+        maps[index].attackTargetReservationManager.ReleaseClaimedBy(this, job);
+      }
+    }
+
+    public void VerifyReservations(Job prevJob = null)
+    {
+      if (this.jobs == null || this.CurJob != null || this.jobs.jobQueue.Count > 0 || this.jobs.startingNewJob)
+        return;
+      bool flag = false;
+      List<Map> maps = Find.Maps;
+      for (int index = 0; index < maps.Count; ++index)
+      {
+        LocalTargetInfo localTargetInfo1 = maps[index].reservationManager.FirstReservationFor(this);
+        if (localTargetInfo1.IsValid)
+        {
+          Log.ErrorOnce(string.Format("Reservation manager failed to clean up properly; {0} still reserving {1}, prev job: {2}", (object) this.ToStringSafe<Pawn>(), (object) localTargetInfo1.ToStringSafe<LocalTargetInfo>(), (object) prevJob), 97771429 ^ this.thingIDNumber);
+          flag = true;
+        }
+        LocalTargetInfo localTargetInfo2 = maps[index].physicalInteractionReservationManager.FirstReservationFor(this);
+        if (localTargetInfo2.IsValid)
+        {
+          Log.ErrorOnce("Physical interaction reservation manager failed to clean up properly; " + this.ToStringSafe<Pawn>() + " still reserving " + localTargetInfo2.ToStringSafe<LocalTargetInfo>() + ", prev job: {prevJob}", 19586765 ^ this.thingIDNumber);
+          flag = true;
+        }
+        IAttackTarget attackTarget = maps[index].attackTargetReservationManager.FirstReservationFor(this);
+        if (attackTarget != null)
+        {
+          Log.ErrorOnce("Attack target reservation manager failed to clean up properly; " + this.ToStringSafe<Pawn>() + " still reserving " + attackTarget.ToStringSafe<IAttackTarget>() + ", prev job: {prevJob}", 100495878 ^ this.thingIDNumber);
+          flag = true;
+        }
+        IntVec3 intVec3 = maps[index].pawnDestinationReservationManager.FirstObsoleteReservationFor(this);
+        if (intVec3.IsValid)
+        {
+          Job job = maps[index].pawnDestinationReservationManager.FirstObsoleteReservationJobFor(this);
+          Log.ErrorOnce("Pawn destination reservation manager failed to clean up properly; " + this.ToStringSafe<Pawn>() + "/" + job.ToStringSafe<Job>() + "/" + job.def.ToStringSafe<JobDef>() + " still reserving " + intVec3.ToStringSafe<IntVec3>() + ", prev job: {prevJob}", 1958674 ^ this.thingIDNumber);
+          flag = true;
+        }
+      }
+      if (!flag)
+        return;
+      this.ClearAllReservations();
+    }
+
+    public void DropAndForbidEverything(bool keepInventoryAndEquipmentIfInBed = false, bool rememberPrimary = false)
+    {
+      if (this.kindDef.destroyGearOnDrop)
+      {
+        this.equipment.DestroyAllEquipment();
+        this.apparel.DestroyAll();
+      }
+      if (this.InContainerEnclosed)
+      {
+        if (this.carryTracker?.CarriedThing != null)
+          this.carryTracker.innerContainer.TryTransferToContainer(this.carryTracker.CarriedThing, this.holdingOwner);
+        if (this.equipment?.Primary != null)
+          this.equipment.TryTransferEquipmentToContainer(this.equipment.Primary, this.holdingOwner);
+        this.inventory?.innerContainer.TryTransferAllToContainer(this.holdingOwner);
+      }
+      else
+      {
+        if (!this.SpawnedOrAnyParentSpawned)
+          return;
+        if (this.carryTracker?.CarriedThing != null)
+          this.carryTracker.TryDropCarriedThing(this.PositionHeld, ThingPlaceMode.Near, out Thing _);
+        if (keepInventoryAndEquipmentIfInBed && this.InBed())
+          return;
+        this.equipment?.DropAllEquipment(this.PositionHeld, rememberPrimary: rememberPrimary);
+        if (this.inventory == null || this.inventory.innerContainer.TotalStackCount <= 0)
+          return;
+        this.inventory.DropAllNearPawn(this.PositionHeld, true);
+      }
+    }
+
+    public void GenerateNecessaryName()
+    {
+      if (this.Name != null || this.Faction != Faction.OfPlayer || !this.RaceProps.Animal && (!ModsConfig.BiotechActive || !this.RaceProps.IsMechanoid))
+        return;
+      this.Name = PawnBioAndNameGenerator.GeneratePawnName(this, NameStyle.Numeric);
+    }
+
+    public Verb TryGetAttackVerb(Thing target, bool allowManualCastWeapons = false, bool allowTurrets = false)
+    {
+      if (this.equipment?.Primary != null && this.equipment.PrimaryEq.PrimaryVerb.Available() && ((!this.equipment.PrimaryEq.PrimaryVerb.verbProps.onlyManualCast ? 1 : (this.CurJob == null ? 0 : (this.CurJob.def != JobDefOf.Wait_Combat ? 1 : 0))) | (allowManualCastWeapons ? 1 : 0)) != 0)
+        return this.equipment.PrimaryEq.PrimaryVerb;
+      if (allowManualCastWeapons && this.apparel != null)
+      {
+        Verb firstApparelVerb = this.apparel.FirstApparelVerb;
+        if (firstApparelVerb != null && firstApparelVerb.Available())
+          return firstApparelVerb;
+      }
+      if (allowTurrets)
+      {
+        List<ThingComp> allComps = this.AllComps;
+        for (int index = 0; index < allComps.Count; ++index)
+        {
+          if (allComps[index] is CompTurretGun compTurretGun && !compTurretGun.TurretDestroyed && compTurretGun.GunCompEq.PrimaryVerb.Available())
+            return compTurretGun.GunCompEq.PrimaryVerb;
+        }
+      }
+      return this.kindDef.canMeleeAttack ? this.meleeVerbs.TryGetMeleeVerb(target) : (Verb) null;
+    }
+
+    public bool TryStartAttack(LocalTargetInfo targ)
+    {
+      if (this.stances.FullBodyBusy || this.WorkTagIsDisabled(WorkTags.Violent))
+        return false;
+      bool allowManualCastWeapons = !this.IsColonist;
+      Verb attackVerb = this.TryGetAttackVerb(targ.Thing, allowManualCastWeapons);
+      return attackVerb != null && attackVerb.TryStartCastOn(attackVerb.verbProps.ai_RangedAlawaysShootGroundBelowTarget ? (LocalTargetInfo) targ.Cell : targ);
+    }
+
+    public override IEnumerable<Thing> ButcherProducts(Pawn butcher, float efficiency)
+    {
+      Pawn pawn = this;
+      if (pawn.RaceProps.meatDef != null)
+      {
+        int num = GenMath.RoundRandom(pawn.GetStatValue(StatDefOf.MeatAmount) * efficiency);
+        if (num > 0)
+        {
+          Thing thing = ThingMaker.MakeThing(pawn.RaceProps.meatDef);
+          thing.stackCount = num;
+          yield return thing;
+        }
+      }
+      // ISSUE: reference to a compiler-generated method
+      foreach (Thing thing in pawn.\u003C\u003En__1(butcher, efficiency))
+        yield return thing;
+      if (pawn.RaceProps.leatherDef != null)
+      {
+        int num = GenMath.RoundRandom(pawn.GetStatValue(StatDefOf.LeatherAmount) * efficiency);
+        if (num > 0)
+        {
+          Thing thing = ThingMaker.MakeThing(pawn.RaceProps.leatherDef);
+          thing.stackCount = num;
+          yield return thing;
+        }
+      }
+      if (!pawn.RaceProps.Humanlike)
+      {
+        PawnKindLifeStage lifeStage = pawn.ageTracker.CurKindLifeStage;
+        if (lifeStage.butcherBodyPart != null && (pawn.gender == Gender.None || pawn.gender == Gender.Male && lifeStage.butcherBodyPart.allowMale || pawn.gender == Gender.Female && lifeStage.butcherBodyPart.allowFemale))
+        {
+          while (true)
+          {
+            BodyPartRecord partRecord = pawn.health.hediffSet.GetNotMissingParts().FirstOrDefault<BodyPartRecord>((Func<BodyPartRecord, bool>) (x => x.IsInGroup(lifeStage.butcherBodyPart.bodyPartGroup)));
+            if (partRecord != null)
+            {
+              pawn.health.AddHediff(HediffMaker.MakeHediff(HediffDefOf.MissingBodyPart, pawn, partRecord));
+              yield return ThingMaker.MakeThing(lifeStage.butcherBodyPart.thing ?? partRecord.def.spawnThingOnRemoved);
+            }
+            else
+              break;
+          }
+        }
+      }
+    }
+
+    public TaggedString FactionDesc(
+      TaggedString name,
+      bool extraFactionsInfo,
+      string nameLabel,
+      string genderLabel)
+    {
+      Pawn.tmpExtraFactions.Clear();
+      QuestUtility.GetExtraFactionsFromQuestParts(this, Pawn.tmpExtraFactions);
+      GuestUtility.GetExtraFactionsFromGuestStatus(this, Pawn.tmpExtraFactions);
+      TaggedString taggedString = this.Faction == null || this.Faction.Hidden ? name : (Pawn.tmpExtraFactions.Count != 0 || this.SlaveFaction != null ? "PawnMainDescUnderFactionedWrap".Translate((NamedArgument) name, (NamedArgument) this.Faction.NameColored) : "PawnMainDescFactionedWrap".Translate((NamedArgument) name, (NamedArgument) this.Faction.NameColored, nameLabel.Named("NAME"), genderLabel.Named("GENDER")));
+      if (extraFactionsInfo)
+      {
+        for (int index = 0; index < Pawn.tmpExtraFactions.Count; ++index)
+        {
+          if (this.Faction != Pawn.tmpExtraFactions[index].faction && !Pawn.tmpExtraFactions[index].faction.Hidden)
+            taggedString += "\n" + Pawn.tmpExtraFactions[index].factionType.GetLabel().CapitalizeFirst() + ": " + Pawn.tmpExtraFactions[index].faction.NameColored.Resolve();
+        }
+      }
+      Pawn.tmpExtraFactions.Clear();
+      return taggedString;
+    }
+
+    public string MainDesc(bool writeFaction, bool writeGender = true)
+    {
+      bool flag = this.Faction == null || !this.Faction.IsPlayer;
+      string str = writeGender ? (this.gender == Gender.None ? string.Empty : this.gender.GetLabel(this.AnimalOrWildMan())) : string.Empty;
+      string nameLabel = string.Empty;
+      if (this.RaceProps.Animal || this.RaceProps.IsMechanoid)
+      {
+        nameLabel = GenLabel.BestKindLabel(this, mustNoteLifeStage: true);
+        if (this.Name != null)
+        {
+          if (!str.NullOrEmpty())
+            str += " ";
+          str += nameLabel;
+        }
+      }
+      if (this.ageTracker != null)
+      {
+        if (str.Length > 0)
+          str += ", ";
+        str = (string) (str + "AgeIndicator".Translate((NamedArgument) this.ageTracker.AgeNumberString));
+      }
+      if (ModsConfig.AnomalyActive && this.IsMutant && this.mutant.HasTurned)
+      {
+        if (str.Length > 0)
+          str += ", ";
+        str += this.mutant.Def.label;
+      }
+      else if (((this.RaceProps.Animal ? 0 : (!this.RaceProps.IsMechanoid ? 1 : 0)) & (flag ? 1 : 0)) != 0 && !this.IsCreepJoiner)
+      {
+        if (str.Length > 0)
+          str += ", ";
+        nameLabel = GenLabel.BestKindLabel(this, mustNoteLifeStage: true);
+        str += nameLabel;
+      }
+      if (writeFaction)
+        str = this.FactionDesc((TaggedString) str, true, nameLabel, this.gender.GetLabel(this.RaceProps.Animal)).Resolve();
+      return str.CapitalizeFirst();
+    }
+
+    public string GetJobReport()
+    {
+      try
+      {
+        string str = this.GetLord()?.LordJob?.GetJobReport(this) ?? this.jobs?.curDriver?.GetReport();
+        return str != null ? str.CapitalizeFirst() : (string) null;
+      }
+      catch (Exception ex)
+      {
+        Log.Error("JobDriver.GetReport() exception: " + (object) ex);
+        return (string) null;
+      }
+    }
+
+    public override string GetInspectString()
+    {
+      StringBuilder stringBuilder1 = new StringBuilder();
+      if (!this.def.hideMainDesc)
+        stringBuilder1.AppendLine(this.MainDesc(PawnUtility.ShouldDisplayFactionInInspectString(this)));
+      RoyalTitle mostSeniorTitle = this.royalty?.MostSeniorTitle;
+      TaggedString taggedString1;
+      if (mostSeniorTitle != null)
+      {
+        StringBuilder stringBuilder2 = stringBuilder1;
+        taggedString1 = "PawnTitleDescWrap".Translate((NamedArgument) mostSeniorTitle.def.GetLabelCapFor(this), (NamedArgument) mostSeniorTitle.faction.NameColored);
+        string str = taggedString1.Resolve();
+        stringBuilder2.AppendLine(str);
+      }
+      string inspectString1 = base.GetInspectString();
+      if (!inspectString1.NullOrEmpty())
+        stringBuilder1.AppendLine(inspectString1);
+      if (this.TraderKind != null)
+        stringBuilder1.AppendLine((string) this.TraderKind.LabelCap);
+      if (this.InMentalState)
+      {
+        string inspectLine = this.MentalState.InspectLine;
+        if (!string.IsNullOrEmpty(inspectLine))
+          stringBuilder1.AppendLine(inspectLine);
+      }
+      Pawn.states.Clear();
+      if (this.health?.hediffSet != null)
+      {
+        List<Hediff> hediffs = this.health.hediffSet.hediffs;
+        for (int index = 0; index < hediffs.Count; ++index)
+        {
+          Hediff hediff = hediffs[index];
+          if (!hediff.def.battleStateLabel.NullOrEmpty())
+            Pawn.states.AddDistinct<string>(hediff.def.battleStateLabel);
+          string inspectString2 = hediff.GetInspectString();
+          if (!inspectString2.NullOrEmpty())
+            stringBuilder1.AppendLine(inspectString2);
+        }
+      }
+      if (Pawn.states.Count > 0)
+      {
+        Pawn.states.Sort();
+        stringBuilder1.AppendLine(string.Format("{0}: {1}", (object) "State".Translate(), (object) Pawn.states.ToCommaList().CapitalizeFirst()));
+        Pawn.states.Clear();
+      }
+      if (this.stances?.stunner != null && this.stances.stunner.Stunned)
+      {
+        if (this.stances.stunner.Hypnotized)
+          stringBuilder1.AppendLine((string) "InTrance".Translate());
+        else if (this.stances.stunner.StunFromEMP)
+        {
+          stringBuilder1.AppendLine((string) ("StunnedByEMP".Translate() + ": " + this.stances.stunner.StunTicksLeft.ToStringSecondsFromTicks()));
+        }
+        else
+        {
+          StringBuilder stringBuilder3 = stringBuilder1;
+          taggedString1 = "StunLower".Translate();
+          string str = (string) (taggedString1.CapitalizeFirst() + ": " + this.stances.stunner.StunTicksLeft.ToStringSecondsFromTicks());
+          stringBuilder3.AppendLine(str);
+        }
+      }
+      if (this.stances?.stagger != null && this.stances.stagger.Staggered)
+        stringBuilder1.AppendLine((string) ("SlowedByDamage".Translate() + ": " + this.stances.stagger.StaggerTicksLeft.ToStringSecondsFromTicks()));
+      if (this.Inspired)
+        stringBuilder1.AppendLine(this.Inspiration.InspectLine);
+      if (this.equipment?.Primary != null)
+        stringBuilder1.AppendLine("Equipped".TranslateSimple() + ": " + (this.equipment.Primary != null ? this.equipment.Primary.Label : "EquippedNothing".TranslateSimple()).CapitalizeFirst());
+      if (this.abilities != null)
+      {
+        for (int index = 0; index < this.abilities.AllAbilitiesForReading.Count; ++index)
+        {
+          string inspectString3 = this.abilities.AllAbilitiesForReading[index].GetInspectString();
+          if (!inspectString3.NullOrEmpty())
+            stringBuilder1.AppendLine(inspectString3);
+        }
+      }
+      if (this.carryTracker?.CarriedThing != null && (this.CurJob == null || this.CurJob.showCarryingInspectLine))
+      {
+        stringBuilder1.Append((string) ("Carrying".Translate() + ": "));
+        stringBuilder1.AppendLine(this.carryTracker.CarriedThing.LabelCap);
+      }
+      Pawn_RopeTracker roping = this.roping;
+      if ((roping != null ? (roping.IsRoped ? 1 : 0) : 0) != 0)
+        stringBuilder1.AppendLine(this.roping.InspectLine);
+      if (ModsConfig.BiotechActive && this.IsColonyMech && this.needs.energy != null)
+      {
+        TaggedString taggedString2 = "MechEnergy".Translate() + ": " + this.needs.energy.CurLevelPercentage.ToStringPercent();
+        float maxLevel = this.needs.energy.MaxLevel;
+        TaggedString taggedString3 = !this.IsCharging() ? (!this.IsSelfShutdown() ? taggedString2 + (" (-" + "PerDay".Translate((NamedArgument) (this.needs.energy.FallPerDay / maxLevel).ToStringPercent()) + ")") : taggedString2 + (" (+" + "PerDay".Translate((NamedArgument) (1f / maxLevel).ToStringPercent()) + ")")) : taggedString2 + (" (+" + "PerDay".Translate((NamedArgument) (50f / maxLevel).ToStringPercent()) + ")");
+        stringBuilder1.AppendLine((string) taggedString3);
+      }
+      string str1 = (string) null;
+      if (PawnUtility.ShouldDisplayLordReport(this))
+      {
+        Lord lord = this.GetLord();
+        if (lord?.LordJob != null)
+          str1 = lord.LordJob.GetReport(this);
+      }
+      if (PawnUtility.ShouldDisplayJobReport(this))
+      {
+        string jobReport = this.GetJobReport();
+        if (str1.NullOrEmpty())
+          str1 = jobReport;
+        else if (!jobReport.NullOrEmpty())
+          str1 = str1 + ": " + jobReport;
+      }
+      if (!str1.NullOrEmpty())
+        stringBuilder1.AppendLine(str1.CapitalizeFirst().EndWithPeriod());
+      if (this.jobs?.curJob != null)
+      {
+        Pawn_JobTracker jobs = this.jobs;
+        if ((jobs != null ? (jobs.jobQueue.Count > 0 ? 1 : 0) : 0) != 0)
+        {
+          try
+          {
+            string str2 = this.jobs.jobQueue[0].job.GetReport(this).CapitalizeFirst();
+            if (this.jobs.jobQueue.Count > 1)
+              str2 = str2 + " (+" + (object) (this.jobs.jobQueue.Count - 1) + ")";
+            stringBuilder1.AppendLine((string) ("Queued".Translate() + ": " + str2));
+          }
+          catch (Exception ex)
+          {
+            Log.Error("JobDriver.GetReport() exception: " + (object) ex);
+          }
+        }
+      }
+      if (ModsConfig.AnomalyActive)
+      {
+        if (this.IsMutant)
+        {
+          string inspectString4 = this.mutant.GetInspectString();
+          if (!inspectString4.NullOrEmpty())
+            stringBuilder1.AppendLine(inspectString4);
+        }
+        if (this.health?.hediffSet != null)
+        {
+          Hediff_MetalhorrorImplant firstHediff = this.health.hediffSet.GetFirstHediff<Hediff_MetalhorrorImplant>();
+          if (firstHediff != null && firstHediff.Emerging)
+            stringBuilder1.AppendLine((string) "Emerging".Translate());
+        }
+        if (this.IsCreepJoiner)
+        {
+          string inspectString5 = this.creepjoiner.GetInspectString();
+          if (!inspectString5.NullOrEmpty())
+            stringBuilder1.AppendLine(inspectString5);
+        }
+      }
+      if (ModsConfig.BiotechActive && this.needs?.energy != null && this.needs.energy.IsLowEnergySelfShutdown)
+        stringBuilder1.AppendLine((string) "MustBeCarriedToRecharger".Translate());
+      if (RestraintsUtility.ShouldShowRestraintsInfo(this))
+        stringBuilder1.AppendLine((string) "InRestraints".Translate());
+      if (this.guest != null && !this.guest.Recruitable && !this.IsMutant && !this.IsCreepJoiner)
+      {
+        if (this.Faction == null)
+        {
+          StringBuilder stringBuilder4 = stringBuilder1;
+          taggedString1 = "UnrecruitableNoFaction".Translate();
+          string str3 = (string) taggedString1.CapitalizeFirst();
+          stringBuilder4.AppendLine(str3);
+        }
+        else if (this.Faction != Faction.OfPlayer || this.IsSlaveOfColony || this.IsPrisonerOfColony)
+        {
+          StringBuilder stringBuilder5 = stringBuilder1;
+          taggedString1 = "Unrecruitable".Translate();
+          string str4 = (string) taggedString1.CapitalizeFirst();
+          stringBuilder5.AppendLine(str4);
+        }
+      }
+      if (Prefs.DevMode && DebugSettings.showLocomotionUrgency && this.CurJob != null)
+        stringBuilder1.AppendLine("Locomotion Urgency: " + this.CurJob.locomotionUrgency.ToString());
+      return stringBuilder1.ToString().TrimEndNewlines();
+    }
+
+    public override IEnumerable<Gizmo> GetGizmos()
+    {
+      Pawn pawn = this;
+      // ISSUE: reference to a compiler-generated method
+      foreach (Gizmo gizmo in pawn.\u003C\u003En__2())
+        yield return gizmo;
+      if (pawn.IsColonistPlayerControlled || pawn.IsColonyMech || pawn.IsColonyMutantPlayerControlled)
+      {
+        Lord lord1 = pawn.GetLord();
+        AcceptanceReport allowsDrafting = lord1 != null ? lord1.AllowsDrafting(pawn) : (AcceptanceReport) true;
+        if (pawn.drafter != null)
+        {
+          foreach (Gizmo gizmo in pawn.drafter.GetGizmos())
+          {
+            if (!(bool) allowsDrafting && !gizmo.Disabled)
+            {
+              gizmo.Disabled = true;
+              gizmo.disabledReason = allowsDrafting.Reason;
+            }
+            yield return gizmo;
+          }
+        }
+        foreach (Gizmo attackGizmo in PawnAttackGizmoUtility.GetAttackGizmos(pawn))
+        {
+          if (!(bool) allowsDrafting && !attackGizmo.Disabled)
+          {
+            attackGizmo.Disabled = true;
+            attackGizmo.disabledReason = allowsDrafting.Reason;
+          }
+          yield return attackGizmo;
+        }
+        allowsDrafting = new AcceptanceReport();
+      }
+      if (pawn.equipment != null)
+      {
+        foreach (Gizmo gizmo in pawn.equipment.GetGizmos())
+          yield return gizmo;
+      }
+      if (pawn.carryTracker != null)
+      {
+        foreach (Gizmo gizmo in pawn.carryTracker.GetGizmos())
+          yield return gizmo;
+      }
+      if (pawn.needs != null)
+      {
+        foreach (Gizmo gizmo in pawn.needs.GetGizmos())
+          yield return gizmo;
+      }
+      if (Find.Selector.SingleSelectedThing == pawn && pawn.psychicEntropy != null && pawn.psychicEntropy.NeedToShowGizmo())
+      {
+        yield return pawn.psychicEntropy.GetGizmo();
+        if (DebugSettings.ShowDevGizmos)
+        {
+          Command_Action gizmo1 = new Command_Action();
+          gizmo1.defaultLabel = "DEV: Psyfocus -20%";
+          // ISSUE: reference to a compiler-generated method
+          gizmo1.action = new Action(pawn.\u003CGetGizmos\u003Eb__301_0);
+          yield return (Gizmo) gizmo1;
+          Command_Action gizmo2 = new Command_Action();
+          gizmo2.defaultLabel = "DEV: Psyfocus +20%";
+          // ISSUE: reference to a compiler-generated method
+          gizmo2.action = new Action(pawn.\u003CGetGizmos\u003Eb__301_1);
+          yield return (Gizmo) gizmo2;
+          Command_Action gizmo3 = new Command_Action();
+          gizmo3.defaultLabel = "DEV: Neural heat -20";
+          // ISSUE: reference to a compiler-generated method
+          gizmo3.action = new Action(pawn.\u003CGetGizmos\u003Eb__301_2);
+          yield return (Gizmo) gizmo3;
+          Command_Action gizmo4 = new Command_Action();
+          gizmo4.defaultLabel = "DEV: Neural heat +20";
+          // ISSUE: reference to a compiler-generated method
+          gizmo4.action = new Action(pawn.\u003CGetGizmos\u003Eb__301_3);
+          yield return (Gizmo) gizmo4;
+        }
+      }
+      if (ModsConfig.BiotechActive)
+      {
+        if (MechanitorUtility.IsMechanitor(pawn))
+        {
+          foreach (Gizmo gizmo in pawn.mechanitor.GetGizmos())
+            yield return gizmo;
+        }
+        if (pawn.RaceProps.IsMechanoid)
+        {
+          foreach (Gizmo mechGizmo in MechanitorUtility.GetMechGizmos(pawn))
+            yield return mechGizmo;
+        }
+        if (pawn.RaceProps.Humanlike && pawn.ageTracker.AgeBiologicalYears < 13 && !pawn.Drafted && Find.Selector.SelectedPawns.Count < 2 && pawn.DevelopmentalStage.Child())
+        {
+          yield return (Gizmo) new Gizmo_GrowthTier(pawn);
+          if (DebugSettings.ShowDevGizmos)
+          {
+            Command_Action gizmo = new Command_Action();
+            gizmo.defaultLabel = "DEV: Set growth tier";
+            // ISSUE: reference to a compiler-generated method
+            gizmo.action = new Action(pawn.\u003CGetGizmos\u003Eb__301_4);
+            yield return (Gizmo) gizmo;
+          }
+        }
+      }
+      if (ModsConfig.AnomalyActive)
+      {
+        if (pawn.IsMutant)
+        {
+          foreach (Gizmo gizmo in pawn.mutant.GetGizmos())
+            yield return gizmo;
+        }
+        if (pawn.IsCreepJoiner)
+        {
+          foreach (Gizmo gizmo in pawn.creepjoiner.GetGizmos())
+            yield return gizmo;
+        }
+      }
+      if (pawn.abilities != null)
+      {
+        foreach (Gizmo gizmo in pawn.abilities.GetGizmos())
+          yield return gizmo;
+      }
+      if (pawn.IsColonistPlayerControlled || pawn.IsColonyMech || pawn.IsPrisonerOfColony)
+      {
+        if (pawn.playerSettings != null)
+        {
+          foreach (Gizmo gizmo in pawn.playerSettings.GetGizmos())
+            yield return gizmo;
+        }
+        foreach (Gizmo gizmo in pawn.health.GetGizmos())
+          yield return gizmo;
+      }
+      if (pawn.Dead && pawn.HasShowGizmosOnCorpseHediff)
+      {
+        foreach (Gizmo gizmo in pawn.health.GetGizmos())
+          yield return gizmo;
+      }
+      if (pawn.apparel != null)
+      {
+        foreach (Gizmo gizmo in pawn.apparel.GetGizmos())
+          yield return gizmo;
+      }
+      if (pawn.inventory != null)
+      {
+        foreach (Gizmo gizmo in pawn.inventory.GetGizmos())
+          yield return gizmo;
+      }
+      if (pawn.mindState != null)
+      {
+        foreach (Gizmo gizmo in pawn.mindState.GetGizmos())
+          yield return gizmo;
+      }
+      if (pawn.royalty != null && pawn.IsColonistPlayerControlled)
+      {
+        bool anyPermitOnCooldown = false;
+        foreach (FactionPermit allFactionPermit in pawn.royalty.AllFactionPermits)
+        {
+          if (allFactionPermit.OnCooldown)
+            anyPermitOnCooldown = true;
+          IEnumerable<Gizmo> pawnGizmos = allFactionPermit.Permit.Worker.GetPawnGizmos(pawn, allFactionPermit.Faction);
+          if (pawnGizmos != null)
+          {
+            foreach (Gizmo gizmo in pawnGizmos)
+              yield return gizmo;
+          }
+        }
+        if (pawn.royalty.HasAidPermit)
+          yield return pawn.royalty.RoyalAidGizmo();
+        if (DebugSettings.ShowDevGizmos & anyPermitOnCooldown)
+        {
+          Command_Action gizmo = new Command_Action();
+          gizmo.defaultLabel = "Reset permit cooldowns";
+          // ISSUE: reference to a compiler-generated method
+          gizmo.action = new Action(pawn.\u003CGetGizmos\u003Eb__301_6);
+          yield return (Gizmo) gizmo;
+        }
+        foreach (RoyalTitle royalTitle in pawn.royalty.AllTitlesForReading)
+        {
+          if (royalTitle.def.permits != null)
+          {
+            Faction faction = royalTitle.faction;
+            foreach (RoyalTitlePermitDef permit in royalTitle.def.permits)
+            {
+              IEnumerable<Gizmo> pawnGizmos = permit.Worker.GetPawnGizmos(pawn, faction);
+              if (pawnGizmos != null)
+              {
+                foreach (Gizmo gizmo in pawnGizmos)
+                  yield return gizmo;
+              }
+            }
+            faction = (Faction) null;
+          }
+        }
+      }
+      foreach (Gizmo questRelatedGizmo in QuestUtility.GetQuestRelatedGizmos((Thing) pawn))
+        yield return questRelatedGizmo;
+      if (pawn.royalty != null && ModsConfig.RoyaltyActive)
+      {
+        foreach (Gizmo gizmo in pawn.royalty.GetGizmos())
+          yield return gizmo;
+      }
+      if (pawn.connections != null && ModsConfig.IdeologyActive)
+      {
+        foreach (Gizmo gizmo in pawn.connections.GetGizmos())
+          yield return gizmo;
+      }
+      if (pawn.genes != null)
+      {
+        foreach (Gizmo gizmo in pawn.genes.GetGizmos())
+          yield return gizmo;
+      }
+      Lord lord = pawn.GetLord();
+      if (lord?.LordJob != null)
+      {
+        foreach (Gizmo pawnGizmo in lord.LordJob.GetPawnGizmos(pawn))
+          yield return pawnGizmo;
+        if (lord.CurLordToil != null)
+        {
+          foreach (Gizmo pawnGizmo in lord.CurLordToil.GetPawnGizmos(pawn))
+            yield return pawnGizmo;
+        }
+      }
+      if (DebugSettings.ShowDevGizmos && ModsConfig.BiotechActive)
+      {
+        Pawn_RelationsTracker relations = pawn.relations;
+        if ((relations != null ? (relations.IsTryRomanceOnCooldown ? 1 : 0) : 0) != 0)
+        {
+          Command_Action gizmo = new Command_Action();
+          gizmo.defaultLabel = "DEV: Reset try romance cooldown";
+          // ISSUE: reference to a compiler-generated method
+          gizmo.action = new Action(pawn.\u003CGetGizmos\u003Eb__301_7);
+          yield return (Gizmo) gizmo;
+        }
+      }
+    }
+
+    public virtual IEnumerable<FloatMenuOption> GetExtraFloatMenuOptionsFor(IntVec3 sq)
+    {
+      return Enumerable.Empty<FloatMenuOption>();
+    }
+
+    public override IEnumerable<FloatMenuOption> GetFloatMenuOptions(Pawn selPawn)
+    {
+      foreach (FloatMenuOption floatMenuOption in base.GetFloatMenuOptions(selPawn))
+        yield return floatMenuOption;
+      if (ModsConfig.AnomalyActive && this.creepjoiner != null)
+      {
+        foreach (FloatMenuOption floatMenuOption in this.creepjoiner.GetFloatMenuOptions(selPawn))
+          yield return floatMenuOption;
+      }
+    }
+
+    public override TipSignal GetTooltip()
+    {
+      string str = "";
+      if (this.gender != Gender.None)
+        str = this.LabelCap.EqualsIgnoreCase(this.KindLabel) ? this.GetGenderLabel() : (string) "PawnTooltipGenderAndKindLabel".Translate((NamedArgument) this.GetGenderLabel(), (NamedArgument) this.KindLabel);
+      else if (!this.LabelCap.EqualsIgnoreCase(this.KindLabel))
+        str = this.KindLabel;
+      string generalConditionLabel = HealthUtility.GetGeneralConditionLabel(this);
+      bool flag = !string.IsNullOrEmpty(str);
+      return new TipSignal(this.equipment?.Primary == null ? (!flag ? (string) "PawnTooltipNoDescNoPrimaryEquip".Translate((NamedArgument) this.LabelCap, (NamedArgument) generalConditionLabel) : (string) "PawnTooltipWithDescNoPrimaryEquip".Translate((NamedArgument) this.LabelCap, (NamedArgument) str, (NamedArgument) generalConditionLabel)) : (!flag ? (string) "PawnTooltipWithPrimaryEquipNoDesc".Translate((NamedArgument) this.LabelCap, (NamedArgument) str, (NamedArgument) generalConditionLabel) : (string) "PawnTooltipWithDescAndPrimaryEquip".Translate((NamedArgument) this.LabelCap, (NamedArgument) str, (NamedArgument) this.equipment.Primary.LabelCap, (NamedArgument) generalConditionLabel)), this.thingIDNumber * 152317, TooltipPriority.Pawn);
+    }
+
+    public override IEnumerable<StatDrawEntry> SpecialDisplayStats()
+    {
+      Pawn pawn = this;
+      // ISSUE: reference to a compiler-generated method
+      foreach (StatDrawEntry statDrawEntry in pawn.\u003C\u003En__4())
+        yield return statDrawEntry;
+      if (ModsConfig.BiotechActive && pawn.genes != null && pawn.genes.Xenotype != XenotypeDefOf.Baseliner)
+      {
+        string reportText = pawn.genes.UniqueXenotype ? "UniqueXenotypeDesc".Translate().ToString() : pawn.DescriptionFlavor;
+        yield return new StatDrawEntry(StatCategoryDefOf.BasicsPawn, (string) "Race".Translate(), (string) (pawn.def.LabelCap + " (" + pawn.genes.XenotypeLabel + ")"), reportText, 2100, hyperlinks: pawn.genes.UniqueXenotype ? (IEnumerable<Dialog_InfoCard.Hyperlink>) null : Gen.YieldSingle<Dialog_InfoCard.Hyperlink>(new Dialog_InfoCard.Hyperlink((Def) pawn.genes.Xenotype)));
+      }
+      if (ModsConfig.BiotechActive && pawn.RaceProps.Humanlike && !Mathf.Approximately(pawn.ageTracker.BiologicalTicksPerTick, 1f))
+        yield return new StatDrawEntry(StatCategoryDefOf.BasicsPawn, (string) "StatsReport_AgeRateMultiplier".Translate(), pawn.ageTracker.BiologicalTicksPerTick.ToStringPercent(), (string) "StatsReport_AgeRateMultiplier_Desc".Translate(), 4195);
+      yield return new StatDrawEntry(StatCategoryDefOf.BasicsPawn, (string) "BodySize".Translate(), pawn.BodySize.ToString("F2"), (string) "Stat_Race_BodySize_Desc".Translate(), 500);
+      if (pawn.RaceProps.lifeStageAges.Count > 1 && pawn.RaceProps.Animal)
+        yield return new StatDrawEntry(StatCategoryDefOf.BasicsPawn, (string) "Growth".Translate(), pawn.ageTracker.Growth.ToStringPercent(), (string) "Stat_Race_Growth_Desc".Translate(), 2206);
+      if (pawn.IsWildMan())
+        yield return new StatDrawEntry(StatCategoryDefOf.BasicsPawn, (string) "Wildness".Translate(), 0.75f.ToStringPercent(), TrainableUtility.GetWildnessExplanation(pawn.def), 2050);
+      if (ModsConfig.RoyaltyActive && pawn.RaceProps.intelligence == Intelligence.Humanlike)
+        yield return new StatDrawEntry(StatCategoryDefOf.BasicsPawn, (string) "MeditationFocuses".Translate(), MeditationUtility.FocusTypesAvailableForPawnString(pawn).CapitalizeFirst(), ("MeditationFocusesPawnDesc".Translate() + "\n\n" + MeditationUtility.FocusTypeAvailableExplanation(pawn)).Resolve(), 4011, hyperlinks: MeditationUtility.FocusObjectsForPawnHyperlinks(pawn));
+      if (pawn.apparel != null && !pawn.apparel.AllRequirements.EnumerableNullOrEmpty<ApparelRequirementWithSource>())
+      {
+        StringBuilder stringBuilder = new StringBuilder();
+        foreach (ApparelRequirementWithSource allRequirement in pawn.apparel.AllRequirements)
+        {
+          string str = (string) null;
+          string disabledByLabel;
+          if (!ApparelUtility.IsRequirementActive(allRequirement.requirement, allRequirement.Source, pawn, out disabledByLabel))
+            str = (string) (" [" + "ApparelRequirementDisabledLabel".Translate() + ": " + disabledByLabel + "]");
+          stringBuilder.Append("- ");
+          bool flag = true;
+          foreach (ThingDef thingDef in allRequirement.requirement.AllRequiredApparelForPawn(pawn, includeWorn: true))
+          {
+            if (!flag)
+              stringBuilder.Append(", ");
+            stringBuilder.Append((string) thingDef.LabelCap);
+            flag = false;
+          }
+          if (allRequirement.Source == ApparelRequirementSource.Title)
+          {
+            stringBuilder.Append(" ");
+            if (ModsConfig.BiotechActive)
+              stringBuilder.Append((string) "ApparelRequirementOrAnyPsycasterOrPrestigeApparelOrMechlord".Translate());
+            else
+              stringBuilder.Append((string) "ApparelRequirementOrAnyPsycasterOrPrestigeApparel".Translate());
+          }
+          stringBuilder.Append(" (");
+          stringBuilder.Append((string) "Source".Translate());
+          stringBuilder.Append(": ");
+          stringBuilder.Append(allRequirement.SourceLabelCap);
+          stringBuilder.Append(")");
+          if (str != null)
+            stringBuilder.Append(str);
+          stringBuilder.AppendLine();
+        }
+        yield return new StatDrawEntry(StatCategoryDefOf.BasicsPawn, (string) "Stat_Pawn_RequiredApparel_Name".Translate(), "", (string) ("Stat_Pawn_RequiredApparel_Name".Translate() + ":\n\n" + stringBuilder.ToString()), 100);
+      }
+      if (ModsConfig.IdeologyActive && pawn.Ideo != null)
+      {
+        foreach (StatDrawEntry statDrawEntry in DarknessCombatUtility.GetStatEntriesForPawn(pawn))
+          yield return statDrawEntry;
+      }
+      if (pawn.genes != null)
+      {
+        foreach (StatDrawEntry specialDisplayStat in pawn.genes.SpecialDisplayStats())
+          yield return specialDisplayStat;
+      }
+      if (ModsConfig.BiotechActive && pawn.RaceProps.Humanlike)
+      {
+        TaggedString valueString = "DevelopmentStage_Adult".Translate();
+        TaggedString reportText = "StatsReport_DevelopmentStageDesc_Adult".Translate();
+        if (pawn.ageTracker.CurLifeStage.developmentalStage == DevelopmentalStage.Child)
+        {
+          valueString = "DevelopmentStage_Child".Translate();
+          reportText = "StatsReport_DevelopmentStageDesc_ChildPart1".Translate() + ":\n\n" + pawn.RaceProps.lifeStageWorkSettings.Where<LifeStageWorkSettings>((Func<LifeStageWorkSettings, bool>) (w => w.minAge > 0 && w.workType.visible)).Select<LifeStageWorkSettings, string>((Func<LifeStageWorkSettings, string>) (d => (d.workType.labelShort + " (" + "AgeIndicator".Translate((NamedArgument) d.minAge) + ")").RawText)).ToLineList("  - ", true) + "\n\n" + "StatsReport_DevelopmentStageDesc_ChildPart2".Translate();
+        }
+        else if (pawn.ageTracker.CurLifeStage.developmentalStage == DevelopmentalStage.Baby)
+        {
+          valueString = "DevelopmentStage_Baby".Translate();
+          reportText = "StatsReport_DevelopmentStageDesc_Baby".Translate();
+        }
+        yield return new StatDrawEntry(StatCategoryDefOf.BasicsPawn, (string) "StatsReport_DevelopmentStage".Translate(), (string) valueString, (string) reportText, 4200);
+      }
+      if (ModsConfig.AnomalyActive && pawn.IsMutant)
+      {
+        foreach (StatDrawEntry specialDisplayStat in pawn.mutant.SpecialDisplayStats())
+          yield return specialDisplayStat;
+      }
+    }
+
+    public bool Sterile()
+    {
+      return !this.ageTracker.CurLifeStage.reproductive || this.RaceProps.Humanlike && (!ModsConfig.BiotechActive || (double) this.GetStatValue(StatDefOf.Fertility) <= 0.0) || this.health.hediffSet.HasHediffPreventsPregnancy() || this.SterileGenes();
+    }
+
+    public bool AnythingToStrip()
+    {
+      if (!this.kindDef.canStrip)
+        return false;
+      if (this.equipment != null && this.equipment.HasAnything() || this.inventory != null && this.inventory.innerContainer.Count > 0)
+        return true;
+      if (this.apparel != null)
+      {
+        if (this.Destroyed)
+        {
+          if (this.apparel.AnyApparel)
+            return true;
+        }
+        else if (this.apparel.AnyApparelUnlocked)
+          return true;
+      }
+      return false;
+    }
+
+    public void Strip(bool notifyFaction = true)
+    {
+      Caravan caravan = this.GetCaravan();
+      if (caravan != null)
+      {
+        CaravanInventoryUtility.MoveAllInventoryToSomeoneElse(this, caravan.PawnsListForReading);
+        if (this.apparel != null)
+          CaravanInventoryUtility.MoveAllApparelToSomeonesInventory(this, caravan.PawnsListForReading, this.Destroyed);
+        if (this.equipment != null)
+          CaravanInventoryUtility.MoveAllEquipmentToSomeonesInventory(this, caravan.PawnsListForReading);
+      }
+      else
+      {
+        Corpse corpse = this.Corpse;
+        IntVec3 pos = corpse != null ? corpse.PositionHeld : this.PositionHeld;
+        this.equipment?.DropAllEquipment(pos, false);
+        this.apparel?.DropAll(pos, false, this.Destroyed);
+        this.inventory?.DropAllNearPawn(pos);
+      }
+      if (!notifyFaction || this.Faction == null)
+        return;
+      this.Faction.Notify_MemberStripped(this, Faction.OfPlayer);
+    }
+
+    public Thought_Memory GiveObservedThought(Pawn observer)
+    {
+      CompChimera comp;
+      return ModsConfig.AnomalyActive && this.Spawned && !this.Downed && this.mindState?.duty?.def == DutyDefOf.ChimeraAttack && this.TryGetComp<CompChimera>(out comp) ? (Thought_Memory) comp.GiveObservedThought(observer) : (Thought_Memory) null;
+    }
+
+    public HistoryEventDef GiveObservedHistoryEvent(Pawn observer) => (HistoryEventDef) null;
+
+    public void HearClamor(Thing source, ClamorDef type)
+    {
+      if (this.Dead || this.Downed || this.Deathresting || this.IsSelfShutdown())
+        return;
+      if (type == ClamorDefOf.Movement || type == ClamorDefOf.BabyCry)
+      {
+        if (source is Pawn source1)
+          this.CheckForDisturbedSleep(source1);
+        this.NotifyLordOfClamor(source, type);
+      }
+      else if (type == ClamorDefOf.Harm)
+      {
+        if (this.Faction == Faction.OfPlayer || this.Awake() || this.Faction != source.Faction || this.HostFaction != null)
+          return;
+        this.mindState.canSleepTick = Find.TickManager.TicksGame + 1000;
+        if (this.CurJob != null)
+          this.jobs.EndCurrentJob(JobCondition.InterruptForced);
+        this.NotifyLordOfClamor(source, type);
+      }
+      else if (type == ClamorDefOf.Construction)
+      {
+        if (this.Faction == Faction.OfPlayer || this.Awake() || this.Faction == source.Faction || this.HostFaction != null)
+          return;
+        this.mindState.canSleepTick = Find.TickManager.TicksGame + 1000;
+        if (this.CurJob != null)
+          this.jobs.EndCurrentJob(JobCondition.InterruptForced);
+        this.NotifyLordOfClamor(source, type);
+      }
+      else if (type == ClamorDefOf.Ability)
+      {
+        if (this.Faction == Faction.OfPlayer || this.Faction == source.Faction || this.HostFaction != null)
+          return;
+        if (!this.Awake())
+        {
+          this.mindState.canSleepTick = Find.TickManager.TicksGame + 1000;
+          if (this.CurJob != null)
+            this.jobs.EndCurrentJob(JobCondition.InterruptForced);
+        }
+        this.NotifyLordOfClamor(source, type);
+      }
+      else
+      {
+        if (type != ClamorDefOf.Impact)
+          return;
+        this.mindState.Notify_ClamorImpact(source);
+        if (this.CurJob != null && !this.Awake())
+          this.jobs.EndCurrentJob(JobCondition.InterruptForced);
+        this.NotifyLordOfClamor(source, type);
+      }
+    }
+
+    private void NotifyLordOfClamor(Thing source, ClamorDef type)
+    {
+      this.GetLord()?.Notify_Clamor(source, type);
+    }
+
+    public override void Notify_UsedVerb(Pawn pawn, Verb verb)
+    {
+      base.Notify_UsedVerb(pawn, verb);
+      if (Rand.Chance(this.IsMutant ? this.mutant.Def.soundAttackChance : this.ageTracker.CurLifeStage.soundAttackChance))
+        LifeStageUtility.PlayNearestLifestageSound(pawn, (Func<LifeStageAge, SoundDef>) (lifeStage => lifeStage.soundAttack), (Func<GeneDef, SoundDef>) null, (Func<MutantDef, SoundDef>) (mutantDef => mutantDef.soundAttack));
+      this.UpdatePyroVerbThought(verb);
+    }
+
+    public override void Notify_Explosion(Explosion explosion)
+    {
+      base.Notify_Explosion(explosion);
+      this.mindState.Notify_Explosion(explosion);
+    }
+
+    public override void Notify_BulletImpactNearby(BulletImpactData impactData)
+    {
+      this.apparel?.Notify_BulletImpactNearby(impactData);
+    }
+
+    public virtual void Notify_Downed()
+    {
+      List<ThingComp> allComps = this.AllComps;
+      for (int index = 0; index < allComps.Count; ++index)
+        allComps[index].Notify_Downed();
+    }
+
+    public virtual void Notify_Released()
+    {
+      List<ThingComp> allComps = this.AllComps;
+      for (int index = 0; index < allComps.Count; ++index)
+        allComps[index].Notify_Released();
+      if (!ModsConfig.AnomalyActive)
+        return;
+      this.creepjoiner?.Notify_Released();
+    }
+
+    public virtual void Notify_PrisonBreakout()
+    {
+      List<ThingComp> allComps = this.AllComps;
+      for (int index = 0; index < allComps.Count; ++index)
+        allComps[index].Notify_PrisonBreakout();
+      if (!ModsConfig.AnomalyActive)
+        return;
+      this.creepjoiner?.Notify_PrisonBreakout();
+    }
+
+    public virtual void Notify_DuplicatedFrom(Pawn source)
+    {
+      List<ThingComp> allComps = this.AllComps;
+      for (int index = 0; index < allComps.Count; ++index)
+        allComps[index].Notify_DuplicatedFrom(source);
+      if (!ModsConfig.AnomalyActive)
+        return;
+      this.creepjoiner?.Notify_DuplicatedFrom(source);
+    }
+
+    private void CheckForDisturbedSleep(Pawn source)
+    {
+      if (this.needs.mood == null || this.Awake() || this.Faction != Faction.OfPlayer || Find.TickManager.TicksGame < this.lastSleepDisturbedTick + 300 || this.Deathresting || source != null && (LovePartnerRelationUtility.LovePartnerRelationExists(this, source) || (double) source.RaceProps.petness > 0.0 || source.relations != null && source.relations.DirectRelations.Any<DirectPawnRelation>((Predicate<DirectPawnRelation>) (dr => dr.def == PawnRelationDefOf.Bond))))
+        return;
+      this.lastSleepDisturbedTick = Find.TickManager.TicksGame;
+      this.needs.mood.thoughts.memories.TryGainMemory(ThoughtDefOf.SleepDisturbed);
+    }
+
+    public float GetAcceptArrestChance(Pawn arrester)
+    {
+      return this.Downed || this.WorkTagIsDisabled(WorkTags.Violent) || this.guilt != null && this.guilt.IsGuilty && this.IsColonist && !this.IsQuestLodger() || ModsConfig.AnomalyActive && this.health.hediffSet.HasHediff(HediffDefOf.RevenantHypnosis) || ModsConfig.BiotechActive && this.genes != null && (double) this.genes.AggroMentalBreakSelectionChanceFactor <= 0.0 ? 1f : (StatDefOf.ArrestSuccessChance.Worker.IsDisabledFor((Thing) arrester) ? StatDefOf.ArrestSuccessChance.valueIfMissing : arrester.GetStatValue(StatDefOf.ArrestSuccessChance)) * this.kindDef.acceptArrestChanceFactor;
+    }
+
+    public bool CheckAcceptArrest(Pawn arrester)
+    {
+      float acceptArrestChance = this.GetAcceptArrestChance(arrester);
+      Faction homeFaction = this.HomeFaction;
+      if (homeFaction != null && homeFaction != arrester.factionInt)
+        homeFaction.Notify_MemberCaptured(this, arrester.Faction);
+      List<ThingComp> allComps = this.AllComps;
+      if (this.Downed || this.WorkTagIsDisabled(WorkTags.Violent) || (double) Rand.Value < (double) acceptArrestChance)
+      {
+        for (int index = 0; index < allComps.Count; ++index)
+        {
+          allComps[index].Notify_Arrested(true);
+          if (ModsConfig.AnomalyActive)
+            this.creepjoiner?.Notify_Arrested(true);
+        }
+        return true;
+      }
+      Messages.Message((string) "MessageRefusedArrest".Translate((NamedArgument) this.LabelShort, (NamedArgument) (Thing) this), (LookTargets) (Thing) this, MessageTypeDefOf.ThreatSmall);
+      for (int index = 0; index < allComps.Count; ++index)
+        allComps[index].Notify_Arrested(false);
+      if (ModsConfig.AnomalyActive)
+        this.creepjoiner?.Notify_Arrested(false);
+      if (this.Faction == null || !arrester.HostileTo((Thing) this))
+        this.mindState.mentalStateHandler.TryStartMentalState(MentalStateDefOf.Berserk);
+      return false;
+    }
+
+    public bool ThreatDisabled(IAttackTargetSearcher disabledFor)
+    {
+      if (!this.Spawned || !this.InMentalState && this.GetTraderCaravanRole() == TraderCaravanRole.Carrier && !(this.jobs.curDriver is JobDriver_AttackMelee) || this.mindState.duty != null && this.mindState.duty.def.threatDisabled || !this.mindState.Active || this.IsColonyMechRequiringMechanitor())
+        return true;
+      Pawn thing = disabledFor?.Thing as Pawn;
+      CompActivity comp;
+      return this.Downed && (!this.CanAttackWhileCrawling || !this.Crawling) && (disabledFor == null || (thing?.mindState?.duty == null || !thing.mindState.duty.attackDownedIfStarving ? 0 : (thing.Starving() ? 1 : 0)) == 0) || ModsConfig.AnomalyActive && this.TryGetComp<CompActivity>(out comp) && comp.IsDormant || this.IsPsychologicallyInvisible() || this.ThreatDisabledBecauseNonAggressiveRoamer(thing) || thing != null && thing.ThreatDisabledBecauseNonAggressiveRoamer(this);
+    }
+
+    public bool ThreatDisabledBecauseNonAggressiveRoamer(Pawn otherPawn)
+    {
+      if (!this.RaceProps.Roamer || this.Faction != Faction.OfPlayer)
+        return false;
+      Lord lord = otherPawn != null ? otherPawn.GetLord() : (Lord) null;
+      return (lord == null || !lord.CurLordToil.AllowAggressiveTargetingOfRoamers) && !this.InAggroMentalState && !this.IsFighting() && Find.TickManager.TicksGame >= this.mindState.lastEngageTargetTick + 360;
+    }
+
+    private void UpdatePyroVerbThought(Verb verb)
+    {
+      if (this.story == null || !this.story.traits.HasTrait(TraitDefOf.Pyromaniac) || !verb.IsIncendiary_Melee() && !verb.IsIncendiary_Ranged())
+        return;
+      LocalTargetInfo currentTarget = verb.CurrentTarget;
+      if (currentTarget.Pawn != null)
+      {
+        currentTarget = verb.CurrentTarget;
+        if (currentTarget.Pawn.Spawned)
+        {
+          currentTarget = verb.CurrentTarget;
+          if (this.IsValidPyroThoughtTarget((Thing) currentTarget.Pawn))
+          {
+            this.needs?.mood?.thoughts?.memories?.TryGainMemory(ThoughtDefOf.PyroUsed);
+            return;
+          }
+        }
+      }
+      currentTarget = verb.CurrentTarget;
+      foreach (IntVec3 c in GenRadial.RadialCellsAround(currentTarget.Cell, verb.EffectiveRange, true))
+      {
+        if (c.InBounds(this.MapHeld))
+        {
+          foreach (Thing thing in c.GetThingList(this.MapHeld))
+          {
+            if (this.IsValidPyroThoughtTarget(thing))
+            {
+              Pawn_NeedsTracker needs = this.needs;
+              if (needs != null)
+              {
+                Need_Mood mood = needs.mood;
+                if (mood != null)
+                {
+                  ThoughtHandler thoughts = mood.thoughts;
+                  if (thoughts != null)
+                  {
+                    MemoryThoughtHandler memories = thoughts.memories;
+                    if (memories != null)
+                    {
+                      memories.TryGainMemory(ThoughtDefOf.PyroUsed);
+                      break;
+                    }
+                    break;
+                  }
+                  break;
+                }
+                break;
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    private bool IsValidPyroThoughtTarget(Thing thing)
+    {
+      return thing is Pawn pawn && !pawn.Downed && !pawn.IsPsychologicallyInvisible() && !pawn.Fogged() && pawn.HostileTo(Faction.OfPlayer);
+    }
+
+    public List<WorkTypeDef> GetDisabledWorkTypes(bool permanentOnly = false)
+    {
+      if (Scribe.mode != LoadSaveMode.Inactive)
+      {
+        this.cachedDisabledWorkTypesPermanent = (List<WorkTypeDef>) null;
+        this.cachedDisabledWorkTypes = (List<WorkTypeDef>) null;
+      }
+      if (permanentOnly)
+      {
+        if (this.cachedDisabledWorkTypesPermanent == null)
+        {
+          this.cachedDisabledWorkTypesPermanent = new List<WorkTypeDef>();
+          FillList(this.cachedDisabledWorkTypesPermanent);
+        }
+        return this.cachedDisabledWorkTypesPermanent;
+      }
+      if (this.cachedDisabledWorkTypes == null)
+      {
+        this.cachedDisabledWorkTypes = new List<WorkTypeDef>();
+        FillList(this.cachedDisabledWorkTypes);
+      }
+      return this.cachedDisabledWorkTypes;
+
+      void FillList(List<WorkTypeDef> list)
+      {
+        if (ModsConfig.AnomalyActive && this.IsMutant && this.mutant.HasTurned)
+        {
+          List<WorkTypeDef> defsListForReading = DefDatabase<WorkTypeDef>.AllDefsListForReading;
+          for (int index = 0; index < defsListForReading.Count; ++index)
+          {
+            foreach (WorkTypeDef disabledWorkType in this.mutant.Def.DisabledWorkTypes)
+            {
+              if (!list.Contains(disabledWorkType))
+                list.Add(disabledWorkType);
+            }
+          }
+        }
+        else
+        {
+          if (this.story != null && !this.IsSlave)
+          {
+            foreach (BackstoryDef allBackstory in this.story.AllBackstories)
+            {
+              foreach (WorkTypeDef disabledWorkType in allBackstory.DisabledWorkTypes)
+              {
+                if (!list.Contains(disabledWorkType))
+                  list.Add(disabledWorkType);
+              }
+            }
+            for (int index = 0; index < this.story.traits.allTraits.Count; ++index)
+            {
+              if (!this.story.traits.allTraits[index].Suppressed)
+              {
+                foreach (WorkTypeDef disabledWorkType in this.story.traits.allTraits[index].GetDisabledWorkTypes())
+                {
+                  if (!list.Contains(disabledWorkType))
+                    list.Add(disabledWorkType);
+                }
+              }
+            }
+          }
+          if (ModsConfig.BiotechActive && this.IsColonyMech)
+          {
+            List<WorkTypeDef> defsListForReading = DefDatabase<WorkTypeDef>.AllDefsListForReading;
+            for (int index = 0; index < defsListForReading.Count; ++index)
+            {
+              if (!this.RaceProps.mechEnabledWorkTypes.Contains(defsListForReading[index]) && !list.Contains(defsListForReading[index]))
+                list.Add(defsListForReading[index]);
+            }
+          }
+          if (permanentOnly)
+            return;
+          if (this.health != null)
+          {
+            foreach (WorkTypeDef disabledWorkType in this.health.DisabledWorkTypes)
+            {
+              if (!list.Contains(disabledWorkType))
+                list.Add(disabledWorkType);
+            }
+          }
+          if (this.royalty != null && !this.IsSlave)
+          {
+            foreach (RoyalTitle royalTitle in this.royalty.AllTitlesForReading)
+            {
+              if (royalTitle.conceited)
+              {
+                foreach (WorkTypeDef disabledWorkType in royalTitle.def.DisabledWorkTypes)
+                {
+                  if (!list.Contains(disabledWorkType))
+                    list.Add(disabledWorkType);
+                }
+              }
+            }
+          }
+          if (ModsConfig.IdeologyActive && this.Ideo != null)
+          {
+            Precept_Role role = this.Ideo.GetRole(this);
+            if (role != null)
+            {
+              foreach (WorkTypeDef disabledWorkType in role.DisabledWorkTypes)
+              {
+                if (!list.Contains(disabledWorkType))
+                  list.Add(disabledWorkType);
+              }
+            }
+          }
+          if (ModsConfig.BiotechActive && this.genes != null)
+          {
+            foreach (Gene gene in this.genes.GenesListForReading)
+            {
+              foreach (WorkTypeDef disabledWorkType in gene.DisabledWorkTypes)
+              {
+                if (!list.Contains(disabledWorkType))
+                  list.Add(disabledWorkType);
+              }
+            }
+          }
+          foreach (QuestPart_WorkDisabled partWorkDisabled in QuestUtility.GetWorkDisabledQuestPart(this))
+          {
+            foreach (WorkTypeDef disabledWorkType in partWorkDisabled.DisabledWorkTypes)
+            {
+              if (!list.Contains(disabledWorkType))
+                list.Add(disabledWorkType);
+            }
+          }
+          if (this.guest != null)
+          {
+            foreach (WorkTypeDef disabledWorkType in this.guest.GetDisabledWorkTypes())
+            {
+              if (!list.Contains(disabledWorkType))
+                list.Add(disabledWorkType);
+            }
+          }
+          for (int index = 0; index < this.RaceProps.lifeStageWorkSettings.Count; ++index)
+          {
+            LifeStageWorkSettings stageWorkSetting = this.RaceProps.lifeStageWorkSettings[index];
+            if (stageWorkSetting.IsDisabled(this) && !list.Contains(stageWorkSetting.workType))
+              list.Add(stageWorkSetting.workType);
+          }
+        }
+      }
+    }
+
+    public List<string> GetReasonsForDisabledWorkType(WorkTypeDef workType)
+    {
+      List<string> disabledWorkType1;
+      if (this.cachedReasonsForDisabledWorkTypes != null && this.cachedReasonsForDisabledWorkTypes.TryGetValue(workType, out disabledWorkType1))
+        return disabledWorkType1;
+      List<string> disabledWorkType2 = new List<string>();
+      foreach (BackstoryDef allBackstory in this.story.AllBackstories)
+      {
+        foreach (WorkTypeDef disabledWorkType3 in allBackstory.DisabledWorkTypes)
+        {
+          if (workType == disabledWorkType3)
+          {
+            disabledWorkType2.Add((string) "WorkDisabledByBackstory".Translate((NamedArgument) allBackstory.TitleCapFor(this.gender)));
+            break;
+          }
+        }
+      }
+      for (int index = 0; index < this.story.traits.allTraits.Count; ++index)
+      {
+        Trait allTrait = this.story.traits.allTraits[index];
+        foreach (WorkTypeDef disabledWorkType4 in allTrait.GetDisabledWorkTypes())
+        {
+          if (disabledWorkType4 == workType && !allTrait.Suppressed)
+          {
+            disabledWorkType2.Add((string) "WorkDisabledByTrait".Translate((NamedArgument) allTrait.LabelCap));
+            break;
+          }
+        }
+      }
+      if (this.royalty != null)
+      {
+        foreach (RoyalTitle royalTitle in this.royalty.AllTitlesForReading)
+        {
+          if (royalTitle.conceited)
+          {
+            foreach (WorkTypeDef disabledWorkType5 in royalTitle.def.DisabledWorkTypes)
+            {
+              if (workType == disabledWorkType5)
+              {
+                disabledWorkType2.Add((string) "WorkDisabledByRoyalTitle".Translate((NamedArgument) royalTitle.Label));
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (ModsConfig.IdeologyActive && this.Ideo != null)
+      {
+        Precept_Role role = this.Ideo.GetRole(this);
+        if (role != null)
+        {
+          foreach (WorkTypeDef disabledWorkType6 in role.DisabledWorkTypes)
+          {
+            if (workType == disabledWorkType6)
+            {
+              disabledWorkType2.Add((string) "WorkDisabledRole".Translate((NamedArgument) role.LabelForPawn(this)));
+              break;
+            }
+          }
+        }
+      }
+      if (ModsConfig.AnomalyActive && this.IsMutant)
+      {
+        foreach (WorkTypeDef disabledWorkType7 in this.mutant.Def.DisabledWorkTypes)
+        {
+          if (workType == disabledWorkType7)
+          {
+            disabledWorkType2.Add((string) this.mutant.Def.LabelCap);
+            break;
+          }
+        }
+      }
+      foreach (QuestPart_WorkDisabled partWorkDisabled in QuestUtility.GetWorkDisabledQuestPart(this))
+      {
+        foreach (WorkTypeDef disabledWorkType8 in partWorkDisabled.DisabledWorkTypes)
+        {
+          if (workType == disabledWorkType8)
+          {
+            disabledWorkType2.Add((string) "WorkDisabledByQuest".Translate((NamedArgument) partWorkDisabled.quest.name));
+            break;
+          }
+        }
+      }
+      if (this.guest != null && this.guest.IsSlave)
+      {
+        foreach (WorkTypeDef disabledWorkType9 in this.guest.GetDisabledWorkTypes())
+        {
+          if (workType == disabledWorkType9)
+          {
+            disabledWorkType2.Add((string) "WorkDisabledSlave".Translate());
+            break;
+          }
+        }
+      }
+      if (this.health != null)
+      {
+        foreach (WorkTypeDef disabledWorkType10 in this.health.DisabledWorkTypes)
+        {
+          if (workType == disabledWorkType10)
+          {
+            disabledWorkType2.Add((string) "WorkDisabledHealth".Translate());
+            break;
+          }
+        }
+      }
+      int minAgeRequired;
+      if (this.IsWorkTypeDisabledByAge(workType, out minAgeRequired))
+        disabledWorkType2.Add((string) "WorkDisabledAge".Translate((NamedArgument) (Thing) this, (NamedArgument) this.ageTracker.AgeBiologicalYears, (NamedArgument) workType.labelShort, (NamedArgument) minAgeRequired));
+      if (this.cachedReasonsForDisabledWorkTypes == null)
+        this.cachedReasonsForDisabledWorkTypes = new Dictionary<WorkTypeDef, List<string>>();
+      this.cachedReasonsForDisabledWorkTypes[workType] = disabledWorkType2;
+      return disabledWorkType2;
+    }
+
+    public bool WorkTypeIsDisabled(WorkTypeDef w) => this.GetDisabledWorkTypes().Contains(w);
+
+    public bool OneOfWorkTypesIsDisabled(List<WorkTypeDef> wts)
+    {
+      for (int index = 0; index < wts.Count; ++index)
+      {
+        if (this.WorkTypeIsDisabled(wts[index]))
+          return true;
+      }
+      return false;
+    }
+
+    public void Notify_DisabledWorkTypesChanged()
+    {
+      this.cachedDisabledWorkTypes = (List<WorkTypeDef>) null;
+      this.cachedDisabledWorkTypesPermanent = (List<WorkTypeDef>) null;
+      this.cachedReasonsForDisabledWorkTypes = (Dictionary<WorkTypeDef, List<string>>) null;
+      this.workSettings?.Notify_DisabledWorkTypesChanged();
+      this.skills?.Notify_SkillDisablesChanged();
+    }
+
+    public WorkTags CombinedDisabledWorkTags
+    {
+      get
+      {
+        Pawn_StoryTracker story = this.story;
+        WorkTags disabledWorkTags = (story != null ? story.DisabledWorkTagsBackstoryTraitsAndGenes : WorkTags.None) | this.kindDef.disabledWorkTags;
+        if (this.royalty != null)
+        {
+          foreach (RoyalTitle royalTitle in this.royalty.AllTitlesForReading)
+          {
+            if (royalTitle.conceited)
+              disabledWorkTags |= royalTitle.def.disabledWorkTags;
+          }
+        }
+        if (ModsConfig.IdeologyActive && this.Ideo != null)
+        {
+          Precept_Role role = this.Ideo.GetRole(this);
+          if (role != null)
+            disabledWorkTags |= role.def.roleDisabledWorkTags;
+        }
+        if (this.health?.hediffSet != null)
+        {
+          foreach (Hediff hediff in this.health.hediffSet.hediffs)
+          {
+            HediffStage curStage = hediff.CurStage;
+            if (curStage != null)
+              disabledWorkTags |= curStage.disabledWorkTags;
+          }
+        }
+        foreach (QuestPart_WorkDisabled partWorkDisabled in QuestUtility.GetWorkDisabledQuestPart(this))
+          disabledWorkTags |= partWorkDisabled.disabledWorkTags;
+        if (this.IsMutant)
+        {
+          disabledWorkTags |= this.mutant.Def.workDisables;
+          if (!this.mutant.IsPassive)
+            disabledWorkTags &= ~WorkTags.Violent;
+        }
+        return disabledWorkTags;
+      }
+    }
+
+    public bool WorkTagIsDisabled(WorkTags w) => (this.CombinedDisabledWorkTags & w) != 0;
+
+    public override bool PreventPlayerSellingThingsNearby(out string reason)
+    {
+      if (this.Faction.HostileTo(Faction.OfPlayer) && this.HostFaction == null && !this.Downed && !this.InMentalState)
+      {
+        reason = (string) "Enemies".Translate();
+        return true;
+      }
+      reason = (string) null;
+      return false;
+    }
+
+    public void ChangeKind(PawnKindDef newKindDef)
+    {
+      if (this.kindDef == newKindDef)
+        return;
+      this.kindDef = newKindDef;
+      if (!this.IsWildMan())
+        return;
+      this.mindState.WildManEverReachedOutside = false;
+      ReachabilityUtility.ClearCacheFor(this);
+    }
+
+    public override void ExposeData()
+    {
+      base.ExposeData();
+      Scribe_Defs.Look<PawnKindDef>(ref this.kindDef, "kindDef");
+      Scribe_Values.Look<Gender>(ref this.gender, "gender", Gender.Male);
+      Scribe_Values.Look<int>(ref this.becameWorldPawnTickAbs, "becameWorldPawnTickAbs", -1);
+      Scribe_Values.Look<bool>(ref this.teleporting, "teleporting");
+      Scribe_Values.Look<int>(ref this.showNamePromptOnTick, "showNamePromptOnTick", -1);
+      Scribe_Values.Look<int>(ref this.babyNamingDeadline, "babyNamingDeadline", -1);
+      Scribe_Values.Look<bool>(ref this.addCorpseToLord, "addCorpseToLord");
+      Scribe_Values.Look<int>(ref this.timesRaisedAsShambler, "timesRaisedAsShambler");
+      Scribe_Values.Look<int>(ref this.lastSleepDisturbedTick, "lastSleepDisturbedTick");
+      Scribe_Values.Look<bool>(ref this.dontGivePreArrivalPathway, "dontGivePreArrivalPathway");
+      Scribe_Deep.Look<Name>(ref this.nameInt, "name");
+      if (Scribe.mode == LoadSaveMode.Saving && GenTicks.TicksGame - this.deadlifeDustFactionTick > 12500)
+      {
+        this.deadlifeDustFactionTick = 0;
+        this.deadlifeDustFaction = (Faction) null;
+      }
+      Scribe_Values.Look<int>(ref this.deadlifeDustFactionTick, "deadlifeDustFactionTick");
+      Scribe_References.Look<Faction>(ref this.deadlifeDustFaction, "deadlifeDustFaction");
+      Scribe_Deep.Look<Pawn_MindState>(ref this.mindState, "mindState", (object) this);
+      Scribe_Deep.Look<Pawn_JobTracker>(ref this.jobs, "jobs", (object) this);
+      Scribe_Deep.Look<Pawn_StanceTracker>(ref this.stances, "stances", (object) this);
+      Scribe_Deep.Look<Pawn_InfectionVectorTracker>(ref this.infectionVectors, "infectionVectors", (object) this);
+      Scribe_Deep.Look<VerbTracker>(ref this.verbTracker, "verbTracker", (object) this);
+      Scribe_Deep.Look<Pawn_NativeVerbs>(ref this.natives, "natives", (object) this);
+      Scribe_Deep.Look<Pawn_MeleeVerbs>(ref this.meleeVerbs, "meleeVerbs", (object) this);
+      Scribe_Deep.Look<Pawn_RotationTracker>(ref this.rotationTracker, "rotationTracker", (object) this);
+      Scribe_Deep.Look<Pawn_PathFollower>(ref this.pather, "pather", (object) this);
+      Scribe_Deep.Look<Pawn_CarryTracker>(ref this.carryTracker, "carryTracker", (object) this);
+      Scribe_Deep.Look<Pawn_ApparelTracker>(ref this.apparel, "apparel", (object) this);
+      Scribe_Deep.Look<Pawn_StoryTracker>(ref this.story, "story", (object) this);
+      Scribe_Deep.Look<Pawn_EquipmentTracker>(ref this.equipment, "equipment", (object) this);
+      Scribe_Deep.Look<Pawn_DraftController>(ref this.drafter, "drafter", (object) this);
+      Scribe_Deep.Look<Pawn_AgeTracker>(ref this.ageTracker, "ageTracker", (object) this);
+      Scribe_Deep.Look<Pawn_HealthTracker>(ref this.health, "healthTracker", (object) this);
+      Scribe_Deep.Look<Pawn_RecordsTracker>(ref this.records, "records", (object) this);
+      Scribe_Deep.Look<Pawn_InventoryTracker>(ref this.inventory, "inventory", (object) this);
+      Scribe_Deep.Look<Pawn_FilthTracker>(ref this.filth, "filth", (object) this);
+      Scribe_Deep.Look<Pawn_RopeTracker>(ref this.roping, "roping", (object) this);
+      Scribe_Deep.Look<Pawn_NeedsTracker>(ref this.needs, "needs", (object) this);
+      Scribe_Deep.Look<Pawn_GuestTracker>(ref this.guest, "guest", (object) this);
+      Scribe_Deep.Look<Pawn_GuiltTracker>(ref this.guilt, "guilt", (object) this);
+      Scribe_Deep.Look<Pawn_RoyaltyTracker>(ref this.royalty, "royalty", (object) this);
+      Scribe_Deep.Look<Pawn_RelationsTracker>(ref this.relations, "social", (object) this);
+      Scribe_Deep.Look<Pawn_PsychicEntropyTracker>(ref this.psychicEntropy, "psychicEntropy", (object) this);
+      Scribe_Deep.Look<Pawn_MutantTracker>(ref this.mutant, "shambler", (object) this);
+      Scribe_Deep.Look<Pawn_Ownership>(ref this.ownership, "ownership", (object) this);
+      Scribe_Deep.Look<Pawn_InteractionsTracker>(ref this.interactions, "interactions", (object) this);
+      Scribe_Deep.Look<Pawn_SkillTracker>(ref this.skills, "skills", (object) this);
+      Scribe_Deep.Look<Pawn_AbilityTracker>(ref this.abilities, "abilities", (object) this);
+      Scribe_Deep.Look<Pawn_IdeoTracker>(ref this.ideo, "ideo", (object) this);
+      Scribe_Deep.Look<Pawn_WorkSettings>(ref this.workSettings, "workSettings", (object) this);
+      Scribe_Deep.Look<Pawn_TraderTracker>(ref this.trader, "trader", (object) this);
+      Scribe_Deep.Look<Pawn_OutfitTracker>(ref this.outfits, "outfits", (object) this);
+      Scribe_Deep.Look<Pawn_DrugPolicyTracker>(ref this.drugs, "drugs", (object) this);
+      Scribe_Deep.Look<Pawn_FoodRestrictionTracker>(ref this.foodRestriction, "foodRestriction", (object) this);
+      Scribe_Deep.Look<Pawn_TimetableTracker>(ref this.timetable, "timetable", (object) this);
+      Scribe_Deep.Look<Pawn_PlayerSettings>(ref this.playerSettings, "playerSettings", (object) this);
+      Scribe_Deep.Look<Pawn_TrainingTracker>(ref this.training, "training", (object) this);
+      Scribe_Deep.Look<Pawn_StyleTracker>(ref this.style, "style", (object) this);
+      Scribe_Deep.Look<Pawn_StyleObserverTracker>(ref this.styleObserver, "styleObserver", (object) this);
+      Scribe_Deep.Look<Pawn_ConnectionsTracker>(ref this.connections, "connections", (object) this);
+      Scribe_Deep.Look<Pawn_InventoryStockTracker>(ref this.inventoryStock, "inventoryStock", (object) this);
+      Scribe_Deep.Look<Pawn_SurroundingsTracker>(ref this.surroundings, "treeSightings", (object) this);
+      Scribe_Deep.Look<Pawn_Thinker>(ref this.thinker, "thinker", (object) this);
+      Scribe_Deep.Look<Pawn_MechanitorTracker>(ref this.mechanitor, "mechanitor", (object) this);
+      Scribe_Deep.Look<Pawn_GeneTracker>(ref this.genes, "genes", (object) this);
+      Scribe_Deep.Look<Pawn_LearningTracker>(ref this.learning, "learning", (object) this);
+      Scribe_Deep.Look<Pawn_ReadingTracker>(ref this.reading, "reading", (object) this);
+      Scribe_Deep.Look<Pawn_CreepJoinerTracker>(ref this.creepjoiner, "creepjoiner", (object) this);
+      Scribe_Deep.Look<Pawn_DuplicateTracker>(ref this.duplicate, "duplicate", (object) this);
+      Scribe_Values.Look<bool>(ref this.wasLeftBehindStartingPawn, "wasLeftBehindStartingPawn");
+      Scribe_Values.Look<bool>(ref this.everLostEgo, "everBrainWiped");
+      Scribe_Values.Look<bool>(ref this.wasDraftedBeforeSkip, "wasDraftedBeforeSkip");
+      BackCompatibility.PostExposeData((object) this);
+    }
+
+    public override string ToString()
+    {
+      if (this.story != null)
+        return this.LabelShort;
+      if (this.thingIDNumber > 0)
+        return this.ThingID;
+      if (this.kindDef != null)
+        return this.KindLabel + "_" + this.ThingID;
+      return this.def != null ? this.ThingID : this.GetType().ToString();
+    }
+
+    public TraderKindDef TraderKind => this.trader?.traderKind;
+
+    public TradeCurrency TradeCurrency => this.TraderKind.tradeCurrency;
+
+    public IEnumerable<Thing> Goods => this.trader.Goods;
+
+    public int RandomPriceFactorSeed => this.trader.RandomPriceFactorSeed;
+
+    public string TraderName => this.trader.TraderName;
+
+    public bool CanTradeNow => this.trader != null && this.trader.CanTradeNow;
+
+    public float TradePriceImprovementOffsetForPlayer => 0.0f;
+
+    public float BodySize
+    {
+      get => this.ageTracker.CurLifeStage.bodySizeFactor * this.RaceProps.baseBodySize;
+    }
+
+    public float HealthScale
+    {
+      get => this.ageTracker.CurLifeStage.healthScaleFactor * this.RaceProps.baseHealthScale;
+    }
+
+    public IEnumerable<Thing> EquippedWornOrInventoryThings
+    {
+      get
+      {
+        return this.inventory.innerContainer.ConcatIfNotNull<Thing>((IEnumerable<Thing>) this.apparel?.WornApparel).ConcatIfNotNull<Thing>((IEnumerable<Thing>) this.equipment?.AllEquipmentListForReading);
+      }
+    }
+
+    public IEnumerable<Thing> ColonyThingsWillingToBuy(Pawn playerNegotiator)
+    {
+      return this.trader.ColonyThingsWillingToBuy(playerNegotiator);
+    }
+
+    public void GiveSoldThingToTrader(Thing toGive, int countToGive, Pawn playerNegotiator)
+    {
+      this.trader.GiveSoldThingToTrader(toGive, countToGive, playerNegotiator);
+    }
+
+    public void GiveSoldThingToPlayer(Thing toGive, int countToGive, Pawn playerNegotiator)
+    {
+      this.trader.GiveSoldThingToPlayer(toGive, countToGive, playerNegotiator);
+    }
+
+    Thing IAttackTarget.Thing => (Thing) this;
+
+    public float TargetPriorityFactor => 1f;
+
+    public LocalTargetInfo TargetCurrentlyAimingAt
+    {
+      get
+      {
+        if (!this.Spawned)
+          return LocalTargetInfo.Invalid;
+        Stance curStance = this.stances.curStance;
+        switch (curStance)
+        {
+          case Stance_Warmup _:
+          case Stance_Cooldown _:
+            return ((Stance_Busy) curStance).focusTarg;
+          default:
+            return LocalTargetInfo.Invalid;
+        }
+      }
+    }
+
+    Thing IAttackTargetSearcher.Thing => (Thing) this;
+
+    public LocalTargetInfo LastAttackedTarget => this.mindState.lastAttackedTarget;
+
+    public int LastAttackTargetTick => this.mindState.lastAttackTargetTick;
+
+    public Verb CurrentEffectiveVerb
+    {
+      get
+      {
+        return this.MannedThing() is Building_Turret buildingTurret ? buildingTurret.AttackVerb : this.TryGetAttackVerb((Thing) null, !this.IsColonist);
+      }
+    }
+
+    private bool ForceNoDeathNotification
+    {
+      get => this.forceNoDeathNotification || this.kindDef.forceNoDeathNotification;
+    }
+
+    string IVerbOwner.UniqueVerbOwnerID() => this.GetUniqueLoadID();
+
+    bool IVerbOwner.VerbsStillUsableBy(Pawn p) => p == this;
+
+    Thing IVerbOwner.ConstantCaster => (Thing) this;
+
+    ImplementOwnerTypeDef IVerbOwner.ImplementOwnerTypeDef => ImplementOwnerTypeDefOf.Bodypart;
+
+    public int GetRootTile() => this.Tile;
+
+    public ThingOwner GetDirectlyHeldThings() => (ThingOwner) null;
+
+    public void GetChildHolders(List<IThingHolder> outChildren)
+    {
+      ThingOwnerUtility.AppendThingHoldersFromThings(outChildren, (IList<Thing>) this.GetDirectlyHeldThings());
+      if (this.inventory != null)
+        outChildren.Add((IThingHolder) this.inventory);
+      if (this.carryTracker != null)
+        outChildren.Add((IThingHolder) this.carryTracker);
+      if (this.equipment != null)
+        outChildren.Add((IThingHolder) this.equipment);
+      if (this.apparel == null)
+        return;
+      outChildren.Add((IThingHolder) this.apparel);
+    }
+
+    public BillStack BillStack => this.health.surgeryBills;
+
+    public override IntVec3 InteractionCell
+    {
+      get
+      {
+        return (IntVec3?) this.CurrentBed()?.FindPreferredInteractionCell(this.Position) ?? base.InteractionCell;
+      }
+    }
+
+    public bool CurrentlyUsableForBills()
+    {
+      if (!this.InBed())
+      {
+        JobFailReason.Is(Pawn.NotSurgeryReadyTrans);
+        return false;
+      }
+      if (this.InteractionCell.IsValid)
+        return true;
+      JobFailReason.Is(Pawn.CannotReachTrans);
+      return false;
+    }
+
+    public bool UsableForBillsAfterFueling() => this.CurrentlyUsableForBills();
+
+    public void Notify_BillDeleted(Bill bill) => bill.xenogerm?.Notify_BillRemoved();
+
+    public ThingOwner SearchableContents
+    {
+      get
+      {
+        Pawn_CarryTracker carryTracker = this.carryTracker;
+        return carryTracker == null ? (ThingOwner) null : (ThingOwner) carryTracker.innerContainer;
+      }
+    }
+  }
+}

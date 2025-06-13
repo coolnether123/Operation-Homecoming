@@ -1,0 +1,119 @@
+// Decompiled with JetBrains decompiler
+// Type: RimWorld.QuestScriptDef
+// Assembly: Assembly-CSharp, Version=1.5.9214.33606, Culture=neutral, PublicKeyToken=null
+// MVID: 630E2863-BC9A-4A34-93F2-EFF01E3A9556
+// Assembly location: D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll
+
+using RimWorld.QuestGen;
+using System;
+using System.Collections.Generic;
+using Verse;
+using Verse.Grammar;
+
+#nullable disable
+namespace RimWorld
+{
+  public class QuestScriptDef : Def
+  {
+    public QuestNode root;
+    public float rootSelectionWeight;
+    public SimpleCurve rootSelectionWeightFactorFromPointsCurve;
+    public float rootMinPoints;
+    public float rootMinProgressScore;
+    public bool rootIncreasesPopulation;
+    public float minRefireDays;
+    public float decreeSelectionWeight;
+    public List<string> decreeTags;
+    public RulePack questDescriptionRules;
+    public RulePack questNameRules;
+    public RulePack questDescriptionAndNameRules;
+    public RulePack questContentRules;
+    public bool autoAccept;
+    public bool hideOnCleanup;
+    public FloatRange expireDaysRange = new FloatRange(-1f, -1f);
+    public bool nameMustBeUnique;
+    public int defaultChallengeRating = -1;
+    public bool defaultHidden;
+    public bool isRootSpecial;
+    public bool canGiveRoyalFavor;
+    public LetterDef questAvailableLetterDef;
+    public bool hideInvolvedFactionsInfo;
+    public bool affectedByPopulation;
+    public bool affectedByPoints = true;
+    public bool defaultCharity;
+    public HistoryEventDef successHistoryEvent;
+    public HistoryEventDef failedOrExpiredHistoryEvent;
+    public bool sendAvailableLetter = true;
+    public bool epic;
+    public QuestScriptDef epicParent;
+    public bool endOnColonyMove = true;
+    [Unsaved(false)]
+    private int lastCheckCanRunTick;
+    [Unsaved(false)]
+    private bool lastCanRunResult;
+
+    public bool IsRootRandomSelected => (double) this.rootSelectionWeight != 0.0;
+
+    public bool IsRootDecree => (double) this.decreeSelectionWeight != 0.0;
+
+    public bool IsRootAny => this.IsRootRandomSelected || this.IsRootDecree || this.isRootSpecial;
+
+    public bool IsEpic => this.epic;
+
+    public void Run()
+    {
+      if (this.questDescriptionRules != null)
+        RimWorld.QuestGen.QuestGen.AddQuestDescriptionRules(this.questDescriptionRules);
+      if (this.questNameRules != null)
+        RimWorld.QuestGen.QuestGen.AddQuestNameRules(this.questNameRules);
+      if (this.questDescriptionAndNameRules != null)
+      {
+        RimWorld.QuestGen.QuestGen.AddQuestDescriptionRules(this.questDescriptionAndNameRules);
+        RimWorld.QuestGen.QuestGen.AddQuestNameRules(this.questDescriptionAndNameRules);
+      }
+      if (this.questContentRules != null)
+        RimWorld.QuestGen.QuestGen.AddQuestContentRules(this.questContentRules);
+      this.root.Run();
+    }
+
+    public bool CanRun(Slate slate)
+    {
+      using (new ProfilerBlock("CanRun()"))
+      {
+        if (this.lastCheckCanRunTick == Find.TickManager.TicksGame)
+          return this.lastCanRunResult;
+        this.lastCheckCanRunTick = Find.TickManager.TicksGame;
+        try
+        {
+          this.lastCanRunResult = this.root.TestRun(slate.DeepCopy());
+        }
+        catch (Exception ex)
+        {
+          this.lastCanRunResult = false;
+          Log.Error("Error while checking if can generate quest: " + (object) ex);
+          throw;
+        }
+        return this.lastCanRunResult;
+      }
+    }
+
+    public bool CanRun(float points)
+    {
+      Slate slate = new Slate();
+      slate.Set<float>(nameof (points), points);
+      return this.CanRun(slate);
+    }
+
+    public override IEnumerable<string> ConfigErrors()
+    {
+      foreach (string configError in base.ConfigErrors())
+        yield return configError;
+      if ((double) this.rootSelectionWeight > 0.0 && !this.autoAccept && (double) this.expireDaysRange.TrueMax <= 0.0)
+        yield return "rootSelectionWeight > 0 but expireDaysRange not set";
+      if (this.autoAccept && (double) this.expireDaysRange.TrueMax > 0.0)
+        yield return "autoAccept but there is an expireDaysRange set";
+      if (this.defaultChallengeRating > 0 && !this.IsRootAny)
+        yield return "non-root quest has defaultChallengeRating";
+    }
+  }
+}

@@ -1,0 +1,65 @@
+// Decompiled with JetBrains decompiler
+// Type: Verse.DialogDatabase
+// Assembly: Assembly-CSharp, Version=1.5.9214.33606, Culture=neutral, PublicKeyToken=null
+// MVID: 630E2863-BC9A-4A34-93F2-EFF01E3A9556
+// Assembly location: D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll
+
+using System.Collections.Generic;
+using UnityEngine;
+
+#nullable disable
+namespace Verse
+{
+  public static class DialogDatabase
+  {
+    private static List<DiaNodeMold> Nodes = new List<DiaNodeMold>();
+    private static List<DiaNodeList> NodeLists = new List<DiaNodeList>();
+
+    static DialogDatabase() => DialogDatabase.LoadAllDialog();
+
+    private static void LoadAllDialog()
+    {
+      DialogDatabase.Nodes.Clear();
+      foreach (Object @object in Resources.LoadAll("Dialog", typeof (TextAsset)))
+      {
+        TextAsset ass = @object as TextAsset;
+        if (@object.name == "BaseEncounters" || @object.name == "GeneratedDialogs")
+          LayerLoader.LoadFileIntoList(ass, DialogDatabase.Nodes, DialogDatabase.NodeLists, DiaNodeType.BaseEncounters);
+        if (@object.name == "InsanityBattles")
+          LayerLoader.LoadFileIntoList(ass, DialogDatabase.Nodes, DialogDatabase.NodeLists, DiaNodeType.InsanityBattles);
+        if (@object.name == "SpecialEncounters")
+          LayerLoader.LoadFileIntoList(ass, DialogDatabase.Nodes, DialogDatabase.NodeLists, DiaNodeType.Special);
+      }
+      foreach (DiaNodeMold node in DialogDatabase.Nodes)
+        node.PostLoad();
+      LayerLoader.MarkNonRootNodes(DialogDatabase.Nodes);
+    }
+
+    public static DiaNodeMold GetRandomEncounterRootNode(DiaNodeType NType)
+    {
+      List<DiaNodeMold> source = new List<DiaNodeMold>();
+      foreach (DiaNodeMold node in DialogDatabase.Nodes)
+      {
+        if (node.isRoot && (!node.unique || !node.used) && node.nodeType == NType)
+          source.Add(node);
+      }
+      return source.RandomElement<DiaNodeMold>();
+    }
+
+    public static DiaNodeMold GetNodeNamed(string NodeName)
+    {
+      foreach (DiaNodeMold node in DialogDatabase.Nodes)
+      {
+        if (node.name == NodeName)
+          return node;
+      }
+      foreach (DiaNodeList nodeList in DialogDatabase.NodeLists)
+      {
+        if (nodeList.Name == NodeName)
+          return nodeList.RandomNodeFromList();
+      }
+      Log.Error("Did not find node named '" + NodeName + "'.");
+      return (DiaNodeMold) null;
+    }
+  }
+}

@@ -1,0 +1,256 @@
+// Decompiled with JetBrains decompiler
+// Type: RimWorld.Planet.TileFinder
+// Assembly: Assembly-CSharp, Version=1.5.9214.33606, Culture=neutral, PublicKeyToken=null
+// MVID: 630E2863-BC9A-4A34-93F2-EFF01E3A9556
+// Assembly location: D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using UnityEngine;
+using Verse;
+
+#nullable disable
+namespace RimWorld.Planet
+{
+  public static class TileFinder
+  {
+    private static List<Pair<int, int>> tmpTiles = new List<Pair<int, int>>();
+    private static List<int> tmpPlayerTiles = new List<int>();
+
+    public static int RandomStartingTile()
+    {
+      return TileFinder.RandomSettlementTileFor(Faction.OfPlayer, true);
+    }
+
+    public static int RandomSettlementTileFor(
+      Faction faction,
+      bool mustBeAutoChoosable = false,
+      Predicate<int> extraValidator = null)
+    {
+      for (int index = 0; index < 500; ++index)
+      {
+        int result;
+        if (Enumerable.Range(0, 100).Select<int, int>((Func<int, int>) (_ => Rand.Range(0, Find.WorldGrid.TilesCount))).TryRandomElementByWeight<int>((Func<int, float>) (x =>
+        {
+          Tile tile = Find.WorldGrid[x];
+          if (!tile.biome.canBuildBase || !tile.biome.implemented || tile.hilliness == Hilliness.Impassable || mustBeAutoChoosable && !tile.biome.canAutoChoose || extraValidator != null && !extraValidator(x))
+            return 0.0f;
+          float settlementSelectionWeight = tile.biome.settlementSelectionWeight;
+          if (faction?.def.minSettlementTemperatureChanceCurve != null)
+            settlementSelectionWeight *= faction.def.minSettlementTemperatureChanceCurve.Evaluate(GenTemperature.MinTemperatureAtTile(x));
+          return settlementSelectionWeight;
+        }), out result) && TileFinder.IsValidTileForNewSettlement(result))
+          return result;
+      }
+      Log.Error("Failed to find faction base tile for " + (object) faction);
+      return 0;
+    }
+
+    public static bool IsValidTileForNewSettlement(int tile, StringBuilder reason = null)
+    {
+      Tile tile1 = Find.WorldGrid[tile];
+      if (!tile1.biome.canBuildBase)
+      {
+        reason?.Append((string) "CannotLandBiome".Translate((NamedArgument) tile1.biome.LabelCap));
+        return false;
+      }
+      if (!tile1.biome.implemented)
+      {
+        reason?.Append((string) ("BiomeNotImplemented".Translate() + ": " + tile1.biome.LabelCap));
+        return false;
+      }
+      if (tile1.hilliness == Hilliness.Impassable)
+      {
+        reason?.Append((string) "CannotLandImpassableMountains".Translate());
+        return false;
+      }
+      Settlement settlement = Find.WorldObjects.SettlementBaseAt(tile);
+      if (settlement != null)
+      {
+        if (reason != null)
+        {
+          if (settlement.Faction == null)
+            reason.Append((string) "TileOccupied".Translate());
+          else if (settlement.Faction == Faction.OfPlayer)
+            reason.Append((string) "YourBaseAlreadyThere".Translate());
+          else
+            reason.Append((string) "BaseAlreadyThere".Translate((NamedArgument) settlement.Faction.Name));
+        }
+        return false;
+      }
+      if (Find.WorldObjects.AnySettlementBaseAtOrAdjacent(tile))
+      {
+        reason?.Append((string) "FactionBaseAdjacent".Translate());
+        return false;
+      }
+      if (!Find.WorldObjects.AnyMapParentAt(tile) && Current.Game.FindMap(tile) == null && !Find.WorldObjects.AnyWorldObjectOfDefAt(WorldObjectDefOf.AbandonedSettlement, tile))
+        return true;
+      reason?.Append((string) "TileOccupied".Translate());
+      return false;
+    }
+
+    public static bool TryFindPassableTileWithTraversalDistance(
+      int rootTile,
+      int minDist,
+      int maxDist,
+      out int result,
+      Predicate<int> validator = null,
+      bool ignoreFirstTilePassability = false,
+      TileFinderMode tileFinderMode = TileFinderMode.Random,
+      bool canTraverseImpassable = false,
+      bool exitOnFirstTileFound = false)
+    {
+      TileFinder.tmpTiles.Clear();
+      Find.WorldFloodFiller.FloodFill(rootTile, (Predicate<int>) (x => canTraverseImpassable || !Find.World.Impassable(x) || x == rootTile & ignoreFirstTilePassability), (Func<int, int, bool>) ((tile, traversalDistance) =>
+      {
+        if (traversalDistance > maxDist)
+          return true;
+        if (traversalDistance >= minDist && !Find.World.Impassable(tile) && (validator == null || validator(tile)))
+        {
+          TileFinder.tmpTiles.Add(new Pair<int, int>(tile, traversalDistance));
+          if (exitOnFirstTileFound)
+            return true;
+        }
+        return false;
+      }));
+      if (exitOnFirstTileFound)
+      {
+        if (TileFinder.tmpTiles.Count > 0)
+        {
+          result = TileFinder.tmpTiles[0].First;
+          return true;
+        }
+        result = -1;
+        return false;
+      }
+      switch (tileFinderMode)
+      {
+        case TileFinderMode.Random:
+          Pair<int, int> result1;
+          if (TileFinder.tmpTiles.TryRandomElement<Pair<int, int>>(out result1))
+          {
+            result = result1.First;
+            return true;
+          }
+          result = -1;
+          return false;
+        case TileFinderMode.Near:
+          Pair<int, int> result2;
+          if (TileFinder.tmpTiles.TryRandomElementByWeight<Pair<int, int>>((Func<Pair<int, int>, float>) (x => (float) (1.0 - (double) (x.Second - minDist) / (double) ((float) (maxDist - minDist) + 0.01f))), out result2))
+          {
+            result = result2.First;
+            return true;
+          }
+          result = -1;
+          return false;
+        case TileFinderMode.Furthest:
+          if (TileFinder.tmpTiles.Count > 0)
+          {
+            int maxDistanceWithOffset = Mathf.Clamp(TileFinder.tmpTiles.MaxBy<Pair<int, int>, int>((Func<Pair<int, int>, int>) (t => t.Second)).Second - 2, minDist, maxDist);
+            Pair<int, int> result3;
+            if (TileFinder.tmpTiles.Where<Pair<int, int>>((Func<Pair<int, int>, bool>) (t => t.Second >= maxDistanceWithOffset - 1)).TryRandomElement<Pair<int, int>>(out result3))
+            {
+              result = result3.First;
+              return true;
+            }
+          }
+          result = -1;
+          return false;
+        default:
+          Log.Error(string.Format("Unknown tile distance preference {0}.", (object) tileFinderMode));
+          result = -1;
+          return false;
+      }
+    }
+
+    public static bool TryFindRandomPlayerTile(
+      out int tile,
+      bool allowCaravans,
+      Predicate<int> validator = null)
+    {
+      TileFinder.tmpPlayerTiles.Clear();
+      List<Map> maps = Find.Maps;
+      for (int index = 0; index < maps.Count; ++index)
+      {
+        if (maps[index].IsPlayerHome && maps[index].mapPawns.FreeColonistsSpawnedCount != 0 && (validator == null || validator(maps[index].Tile)))
+          TileFinder.tmpPlayerTiles.Add(maps[index].Tile);
+      }
+      if (allowCaravans)
+      {
+        List<Caravan> caravans = Find.WorldObjects.Caravans;
+        for (int index = 0; index < caravans.Count; ++index)
+        {
+          if (caravans[index].IsPlayerControlled && (validator == null || validator(caravans[index].Tile)))
+            TileFinder.tmpPlayerTiles.Add(caravans[index].Tile);
+        }
+      }
+      if (TileFinder.tmpPlayerTiles.TryRandomElement<int>(out tile))
+        return true;
+      Map result1;
+      if (Find.Maps.Where<Map>((Func<Map, bool>) (x =>
+      {
+        if (!x.IsPlayerHome)
+          return false;
+        return validator == null || validator(x.Tile);
+      })).TryRandomElement<Map>(out result1))
+      {
+        tile = result1.Tile;
+        return true;
+      }
+      Map result2;
+      if (Find.Maps.Where<Map>((Func<Map, bool>) (x =>
+      {
+        if (x.mapPawns.FreeColonistsSpawnedCount == 0)
+          return false;
+        return validator == null || validator(x.Tile);
+      })).TryRandomElement<Map>(out result2))
+      {
+        tile = result2.Tile;
+        return true;
+      }
+      Caravan result3;
+      if (!allowCaravans && Find.WorldObjects.Caravans.Where<Caravan>((Func<Caravan, bool>) (x =>
+      {
+        if (!x.IsPlayerControlled)
+          return false;
+        return validator == null || validator(x.Tile);
+      })).TryRandomElement<Caravan>(out result3))
+      {
+        tile = result3.Tile;
+        return true;
+      }
+      tile = -1;
+      return false;
+    }
+
+    public static bool TryFindNewSiteTile(
+      out int tile,
+      int minDist = 7,
+      int maxDist = 27,
+      bool allowCaravans = false,
+      TileFinderMode tileFinderMode = TileFinderMode.Near,
+      int nearThisTile = -1,
+      bool exitOnFirstTileFound = false)
+    {
+      int result;
+      Func<int, int> findTile = (Func<int, int>) (root => TileFinder.TryFindPassableTileWithTraversalDistance(root, minDist, maxDist, out result, (Predicate<int>) (x => !Find.WorldObjects.AnyWorldObjectAt(x) && TileFinder.IsValidTileForNewSettlement(x)), tileFinderMode: tileFinderMode, exitOnFirstTileFound: exitOnFirstTileFound) || TileFinder.TryFindPassableTileWithTraversalDistance(root, minDist, maxDist, out result, (Predicate<int>) (x =>
+      {
+        if (Find.WorldObjects.AnyWorldObjectAt(x) || !TileFinder.IsValidTileForNewSettlement(x))
+          return false;
+        return !Find.World.Impassable(x) || Find.WorldGrid[x].WaterCovered;
+      }), tileFinderMode: tileFinderMode, canTraverseImpassable: true, exitOnFirstTileFound: exitOnFirstTileFound) ? result : -1);
+      int tile1;
+      if (nearThisTile != -1)
+        tile1 = nearThisTile;
+      else if (!TileFinder.TryFindRandomPlayerTile(out tile1, allowCaravans, (Predicate<int>) (x => findTile(x) != -1)))
+      {
+        tile = -1;
+        return false;
+      }
+      tile = findTile(tile1);
+      return tile != -1;
+    }
+  }
+}

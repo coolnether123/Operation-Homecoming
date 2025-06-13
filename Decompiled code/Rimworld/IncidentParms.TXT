@@ -1,0 +1,161 @@
+// Decompiled with JetBrains decompiler
+// Type: RimWorld.IncidentParms
+// Assembly: Assembly-CSharp, Version=1.5.9214.33606, Culture=neutral, PublicKeyToken=null
+// MVID: 630E2863-BC9A-4A34-93F2-EFF01E3A9556
+// Assembly location: D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Verse;
+using Verse.AI.Group;
+
+#nullable disable
+namespace RimWorld
+{
+  public class IncidentParms : IExposable
+  {
+    public IIncidentTarget target;
+    public float points = -1f;
+    public Faction faction;
+    public bool forced;
+    public string customLetterLabel;
+    public string customLetterText;
+    public LetterDef customLetterDef;
+    public bool sendLetter = true;
+    public List<ThingDef> letterHyperlinkThingDefs;
+    public List<HediffDef> letterHyperlinkHediffDefs;
+    public string inSignalEnd;
+    public bool silent;
+    public IntVec3 spawnCenter = IntVec3.Invalid;
+    public Rot4 spawnRotation = Rot4.South;
+    public bool generateFightersOnly;
+    public bool dontUseSingleUseRocketLaunchers;
+    public RaidStrategyDef raidStrategy;
+    public PawnsArrivalModeDef raidArrivalMode;
+    [LoadAlias("raidForceOneIncap")]
+    public bool raidForceOneDowned;
+    public bool raidNeverFleeIndividual;
+    public bool raidArrivalModeForQuickMilitaryAid;
+    public RaidAgeRestrictionDef raidAgeRestriction;
+    public float biocodeWeaponsChance;
+    public float biocodeApparelChance;
+    public Dictionary<Pawn, int> pawnGroups;
+    public int? pawnGroupMakerSeed;
+    public Ideo pawnIdeo;
+    public Lord lord;
+    public PawnKindDef pawnKind;
+    public int pawnCount;
+    public PawnGroupKindDef pawnGroupKind;
+    public TraderKindDef traderKind;
+    public int podOpenDelay = 140;
+    public Quest quest;
+    public QuestScriptDef questScriptDef;
+    public string questTag;
+    public MechClusterSketch mechClusterSketch;
+    public bool canTimeoutOrFlee = true;
+    public bool canSteal = true;
+    public bool canKidnap = true;
+    public Pawn controllerPawn;
+    public IntVec3? infestationLocOverride;
+    public List<Thing> attackTargets;
+    public List<Thing> gifts;
+    public float totalBodySize;
+    public PsychicRitualDef psychicRitualDef;
+    public float pointMultiplier = 1f;
+    public bool bypassStorytellerSettings;
+    public List<Pawn> storeGeneratedNeutralPawns;
+    private List<Pawn> tmpPawns;
+    private List<int> tmpGroups;
+
+    public int PawnGroupCount
+    {
+      get
+      {
+        Dictionary<Pawn, int> pawnGroups = this.pawnGroups;
+        return pawnGroups == null ? 0 : pawnGroups.Last<KeyValuePair<Pawn, int>>().Value + 1;
+      }
+    }
+
+    public IncidentParms ShallowCopy() => (IncidentParms) this.MemberwiseClone();
+
+    public void ExposeData()
+    {
+      Scribe_References.Look<IIncidentTarget>(ref this.target, "target");
+      Scribe_Values.Look<float>(ref this.points, "threatPoints");
+      Scribe_References.Look<Faction>(ref this.faction, "faction");
+      Scribe_Values.Look<bool>(ref this.forced, "forced");
+      Scribe_Values.Look<string>(ref this.customLetterLabel, "customLetterLabel");
+      Scribe_Values.Look<string>(ref this.customLetterText, "customLetterText");
+      Scribe_Defs.Look<LetterDef>(ref this.customLetterDef, "customLetterDef");
+      Scribe_Values.Look<bool>(ref this.sendLetter, "sendLetter");
+      Scribe_Collections.Look<ThingDef>(ref this.letterHyperlinkThingDefs, "letterHyperlinkThingDefs", LookMode.Def);
+      Scribe_Collections.Look<HediffDef>(ref this.letterHyperlinkHediffDefs, "letterHyperlinkHediffDefs", LookMode.Def);
+      Scribe_Values.Look<string>(ref this.inSignalEnd, "inSignalEnd");
+      Scribe_Values.Look<bool>(ref this.silent, "silent");
+      if (Scribe.mode == LoadSaveMode.Saving && this.pawnGroups != null)
+        this.pawnGroups.RemoveAll<Pawn, int>((Predicate<KeyValuePair<Pawn, int>>) (x => x.Key == null || x.Key.Destroyed));
+      Scribe_Values.Look<IntVec3>(ref this.spawnCenter, "spawnCenter", IntVec3.Invalid);
+      Scribe_Values.Look<Rot4>(ref this.spawnRotation, "spawnRotation");
+      Scribe_Values.Look<bool>(ref this.generateFightersOnly, "generateFightersOnly");
+      Scribe_Values.Look<bool>(ref this.dontUseSingleUseRocketLaunchers, "dontUseSingleUseRocketLaunchers");
+      Scribe_Defs.Look<RaidStrategyDef>(ref this.raidStrategy, "raidStrategy");
+      Scribe_Defs.Look<PawnsArrivalModeDef>(ref this.raidArrivalMode, "raidArrivalMode");
+      Scribe_Values.Look<bool>(ref this.raidForceOneDowned, "raidForceOneDowned");
+      Scribe_Values.Look<bool>(ref this.raidNeverFleeIndividual, "raidNeverFleeIndividual");
+      Scribe_Values.Look<bool>(ref this.raidArrivalModeForQuickMilitaryAid, "raidArrivalModeForQuickMilitaryAid");
+      Scribe_Defs.Look<RaidAgeRestrictionDef>(ref this.raidAgeRestriction, "raidAgeRestriction");
+      Scribe_Values.Look<float>(ref this.biocodeWeaponsChance, "biocodeWeaponsChance");
+      Scribe_Values.Look<float>(ref this.biocodeApparelChance, "biocodeApparelChance");
+      Scribe_Collections.Look<Pawn, int>(ref this.pawnGroups, "pawnGroups", LookMode.Reference, LookMode.Value, ref this.tmpPawns, ref this.tmpGroups);
+      Scribe_Values.Look<int?>(ref this.pawnGroupMakerSeed, "pawnGroupMakerSeed");
+      Scribe_References.Look<Ideo>(ref this.pawnIdeo, "pawnIdeo");
+      Scribe_References.Look<Lord>(ref this.lord, "lord");
+      Scribe_Defs.Look<PawnKindDef>(ref this.pawnKind, "pawnKind");
+      Scribe_Values.Look<int>(ref this.pawnCount, "pawnCount");
+      Scribe_Defs.Look<PawnGroupKindDef>(ref this.pawnGroupKind, "pawnGroupKind");
+      Scribe_Defs.Look<TraderKindDef>(ref this.traderKind, "traderKind");
+      Scribe_Values.Look<int>(ref this.podOpenDelay, "podOpenDelay", 140);
+      Scribe_References.Look<Quest>(ref this.quest, "quest");
+      Scribe_Defs.Look<QuestScriptDef>(ref this.questScriptDef, "questScriptDef");
+      Scribe_Values.Look<string>(ref this.questTag, "questTag");
+      Scribe_Deep.Look<MechClusterSketch>(ref this.mechClusterSketch, "mechClusterSketch");
+      Scribe_Values.Look<bool>(ref this.canTimeoutOrFlee, "canTimeoutOrFlee", true);
+      Scribe_Values.Look<bool>(ref this.canSteal, "canSteal", true);
+      Scribe_Values.Look<bool>(ref this.canKidnap, "canKidnap", true);
+      Scribe_References.Look<Pawn>(ref this.controllerPawn, "controllerPawn");
+      Scribe_Values.Look<IntVec3?>(ref this.infestationLocOverride, "infestationLocOverride");
+      Scribe_Collections.Look<Thing>(ref this.attackTargets, "attackTargets", LookMode.Reference);
+      Scribe_Collections.Look<Thing>(ref this.gifts, "gifts", LookMode.Deep);
+      Scribe_Values.Look<float>(ref this.totalBodySize, "totalBodySize");
+      Scribe_Defs.Look<PsychicRitualDef>(ref this.psychicRitualDef, "psychicRitualDef");
+      Scribe_Values.Look<float>(ref this.pointMultiplier, "pointMultiplier", 1f);
+      Scribe_Values.Look<bool>(ref this.bypassStorytellerSettings, "bypassStorytellerSettings");
+      if (Scribe.mode == LoadSaveMode.PostLoadInit)
+        this.gifts?.RemoveAll((Predicate<Thing>) (x => x == null));
+      if (Scribe.mode != LoadSaveMode.PostLoadInit || this.attackTargets == null)
+        return;
+      this.attackTargets.RemoveAll((Predicate<Thing>) (x => x == null));
+    }
+
+    public override string ToString()
+    {
+      string str = "";
+      if (this.target != null)
+        str = str + "target=" + (object) this.target;
+      if ((double) this.points >= 0.0)
+        str = str + ", points=" + (object) this.points;
+      if (this.faction != null)
+        str = str + ", faction=" + this.faction.GetUniqueLoadID() + " (" + this.faction.def.defName + ")";
+      if (this.generateFightersOnly)
+        str = str + ", generateFightersOnly=" + this.generateFightersOnly.ToString();
+      if (this.raidStrategy != null)
+        str = str + ", raidStrategy=" + this.raidStrategy.defName;
+      if (this.questScriptDef != null)
+        str = str + ", questScriptDef=" + (object) this.questScriptDef;
+      if (this.raidAgeRestriction != null)
+        str = str + ", raidAgeRestriction=" + (object) this.raidAgeRestriction;
+      return str;
+    }
+  }
+}

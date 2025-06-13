@@ -1,0 +1,23 @@
+// Decompiled with JetBrains decompiler
+// Type: Verse.ModSettings
+// Assembly: Assembly-CSharp, Version=1.5.9214.33606, Culture=neutral, PublicKeyToken=null
+// MVID: 630E2863-BC9A-4A34-93F2-EFF01E3A9556
+// Assembly location: D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll
+
+#nullable disable
+namespace Verse
+{
+  public abstract class ModSettings : IExposable
+  {
+    public Mod Mod { get; internal set; }
+
+    public virtual void ExposeData()
+    {
+    }
+
+    public void Write()
+    {
+      LoadedModManager.WriteModSettings(this.Mod.Content.FolderName, this.Mod.GetType().Name, this);
+    }
+  }
+}
