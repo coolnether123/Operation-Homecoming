@@ -1,0 +1,22 @@
+# Visual Studio state
+/.vs/
+
+# MSBuild and NuGet intermediates
+/obj/
+
+# Visual Studio upgrade leftovers
+/Source/MigrationBackup/
+UpgradeLog.htm
+
+# Intermediate build output for the root project
+/bin/Debug/
+/bin/Release/
+
+# Python bytecode and per-user IDE files
+__pycache__/
+*.user
+*.suo
+
+# OS metadata
+Thumbs.db
+.DS_Store

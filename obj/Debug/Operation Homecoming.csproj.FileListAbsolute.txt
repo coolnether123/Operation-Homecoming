@@ -1,7 +1,0 @@
-D:\Projects\Rimworld Modding\Operation Homecoming\obj\Debug\Operation Homecoming.csproj.AssemblyReference.cache
-D:\Projects\Rimworld Modding\Operation Homecoming\obj\Debug\Operation Homecoming.csproj.CoreCompileInputs.cache
-D:\SteamLibrary\steamapps\common\RimWorld\Mods\Operation Homecoming\Assemblies\Operation Homecoming.dll
-D:\SteamLibrary\steamapps\common\RimWorld\Mods\Operation Homecoming\Assemblies\Operation Homecoming.pdb
-D:\Projects\Rimworld Modding\Operation Homecoming\obj\Debug\Operatio.38E463D8.Up2Date
-D:\Projects\Rimworld Modding\Operation Homecoming\obj\Debug\Operation Homecoming.dll
-D:\Projects\Rimworld Modding\Operation Homecoming\obj\Debug\Operation Homecoming.pdb
