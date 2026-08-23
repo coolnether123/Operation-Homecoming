@@ -155,9 +155,16 @@ namespace OperationHomecoming.Core
                 foreach (var part in __instance.PartsListForReading)
                 {
                     // Look for our site component or pawn references
-                    if (part is QuestPart_SpawnWorldObject spawnPart)
+                    if (part is QuestPart_OperationHomecomingCamp homecomingPart)
                     {
-                        if (spawnPart.worldObject is Site site)
+                        if (homecomingPart.captivePawn != null)
+                        {
+                            captivePawn = homecomingPart.captivePawn;
+                            break;
+                        }
+
+                        Site site = homecomingPart.site;
+                        if (site != null)
                         {
                             var comp = site.GetComponent<KidnapCampSiteComp>();
                             if (comp?.CaptivePawn != null)

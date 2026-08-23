@@ -2,25 +2,25 @@
 <LanguageData>
 
   <!-- Settings translations -->
-  <OH_Settings_ContactTiming>Contact Timing</OH_Settings_ContactTiming>
+  <OH_Settings_ContactTiming>Contact timing</OH_Settings_ContactTiming>
   <OH_Settings_ContactDelayMin>First contact delay (min days)</OH_Settings_ContactDelayMin>
   <OH_Settings_ContactDelayMax>First contact delay (max days)</OH_Settings_ContactDelayMax>
   <OH_Settings_AttemptInterval>Contact attempt interval</OH_Settings_AttemptInterval>
   
-  <OH_Settings_SuccessChance>Success Chances</OH_Settings_SuccessChance>
+  <OH_Settings_SuccessChance>Contact success</OH_Settings_SuccessChance>
   <OH_Settings_BaseSuccess>Base success chance</OH_Settings_BaseSuccess>
   <OH_Settings_SkillIncrement>Skill bonus per 4 levels</OH_Settings_SkillIncrement>
   <OH_Settings_MaxSuccess>Maximum success chance</OH_Settings_MaxSuccess>
   
-  <OH_Settings_QuestSettings>Quest Settings</OH_Settings_QuestSettings>
+  <OH_Settings_QuestSettings>Rescue quests</OH_Settings_QuestSettings>
   <OH_Settings_RumorFrequency>Rumor frequency</OH_Settings_RumorFrequency>
   <OH_Settings_CampStrength>Camp strength factor</OH_Settings_CampStrength>
   <OH_Settings_RescueWindow>Rescue window</OH_Settings_RescueWindow>
   
   <OH_Settings_Features>Features</OH_Settings_Features>
-  <OH_Settings_PrisonBreak>Enable prison break mini-game</OH_Settings_PrisonBreak>
+  <OH_Settings_PrisonBreak>Enable prison-break minigame</OH_Settings_PrisonBreak>
   
-  <OH_Settings_PostFailure>Post-Failure Settings</OH_Settings_PostFailure>
+  <OH_Settings_PostFailure>After a failed rescue</OH_Settings_PostFailure>
   <OH_Settings_RaidChance>Return raid chance</OH_Settings_RaidChance>
   <OH_Settings_IllnessSeverity>Illness severity multiplier</OH_Settings_IllnessSeverity>
 

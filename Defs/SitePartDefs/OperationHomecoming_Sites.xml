@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+  <SitePartDef>
+    <defName>OH_KidnapCamp</defName>
+    <label>kidnap camp</label>
+    <description>A fortified camp holding a kidnapped colonist.</description>
+    <workerClass>OperationHomecoming.Core.SitePartWorker_KidnapCamp</workerClass>
+    <siteTexture>World/WorldObjects/Sites/GenericSite</siteTexture>
+    <forceExitAndRemoveMapCountdownDurationDays>16</forceExitAndRemoveMapCountdownDurationDays>
+    <handlesWorldObjectTimeoutInspectString>true</handlesWorldObjectTimeoutInspectString>
+    <increasesPopulation>true</increasesPopulation>
+    <tags>
+      <li>OperationHomecomingKidnapCamp</li>
+      <li>QuestActiveThreatDefense</li>
+    </tags>
+  </SitePartDef>
+
+  <SitePartDef>
+    <defName>OH_Investigation</defName>
+    <label>kidnap investigation site</label>
+    <description>Clues pointing toward a kidnapped colonist.</description>
+    <workerClass>OperationHomecoming.Core.SitePartWorker_Investigation</workerClass>
+    <siteTexture>World/WorldObjects/Sites/GenericSite</siteTexture>
+    <forceExitAndRemoveMapCountdownDurationDays>8</forceExitAndRemoveMapCountdownDurationDays>
+    <handlesWorldObjectTimeoutInspectString>true</handlesWorldObjectTimeoutInspectString>
+    <tags>
+      <li>OperationHomecomingInvestigation</li>
+    </tags>
+  </SitePartDef>
+</Defs>

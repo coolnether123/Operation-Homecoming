@@ -12,6 +12,13 @@ UpgradeLog.htm
 /bin/Debug/
 /bin/Release/
 
+# Nested developer fixture and contract-test outputs
+/Developer/OperationHomecoming.TestFixture/Source/.vs/
+/Developer/OperationHomecoming.TestFixture/Source/obj/
+/Developer/OperationHomecoming.TestFixture/1.5/Assemblies/*.pdb
+/Tests/bin/
+/Tests/obj/
+
 # Python bytecode and per-user IDE files
 __pycache__/
 *.user

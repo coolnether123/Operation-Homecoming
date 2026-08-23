@@ -42,7 +42,11 @@
     <Compile Include="Core\CustomDefs.cs" />
     <Compile Include="Core\DefModExtensions.cs" />
     <Compile Include="Core\HarmonyPatches.cs" />
+    <Compile Include="Core\HomecomingLifecycleContract.cs" />
+    <Compile Include="Core\QuestPart_OperationHomecomingCamp.cs" />
+    <Compile Include="Core\WorldComponent_OperationHomecoming.cs" />
     <Compile Include="Core\KidnapCampSiteComp.cs" />
+    <Compile Include="Core\KidnapCampSite.cs" />
     <Compile Include="Core\ModSettings_OperationHomecoming.cs" />
     <Compile Include="Core\OHIncidentWorker_ReturnRaid.cs" />
     <Compile Include="Core\OHQuestUtility.cs" />

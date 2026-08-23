@@ -2,7 +2,20 @@
 
 A comprehensive RimWorld mod that transforms kidnapping events into dynamic rescue missions with skill-based contact systems and emergent storytelling.
 
-## Features Implemented (v0.8)
+## Implemented Feature Scope
+
+The 1.5 package contains the recovered `OH_*` incident, quest, site, and
+letter definitions and the production lifecycle: kidnapped pawn tracking,
+contact, rescue quest and camp creation, successful rescue, expiry, wounded
+return, and return raid. A world component persists the lifecycle records and
+queued returns across save/reload.
+
+The repository does not contain a historical reward table, loyalty algorithm,
+or a detailed prison-break design. Accordingly, successful rescue returns the
+pawn and sends the documented success letter; no invented currency reward or
+betrayal rule is claimed. `OH_PrisonBreak` and `OH_Investigation` are declared
+extension seams and are not presented as richer gameplay than the recovered
+source supports.
 
 ### Core Systems
 - **CompKidnapContactTracker**: Automatically tracks kidnapped pawns and manages contact attempts
@@ -97,10 +110,12 @@ All settings are configurable in the mod options menu:
 
 ## Compatibility
 
-- **RimWorld Version**: 1.5+
+- **RimWorld Version**: 1.5 (verified for the current package)
 - **Dependencies**: Harmony (required)
-- **Save Compatibility**: Safe to add or remove mid-save
-- **Mod Compatibility**: Should work with most other mods
+- **Save Compatibility**: 1.5 save/reload and fresh-process continuation were
+  verified with a rescued pawn and persisted Homecoming record
+- **Mod Compatibility**: Only Harmony load order and Operation Homecoming's own
+  Harmony ownership are verified; broader combinations are untested
 
 ## Technical Notes
 
@@ -109,6 +124,17 @@ All settings are configurable in the mod options menu:
 - Modular design allows easy expansion of features
 - Comprehensive error handling and logging
 - Follows RimWorld modding best practices
+
+## Developer Fixture
+
+`Developer/OperationHomecoming.TestFixture` is a separately loadable 1.5
+developer mod. It is intentionally excluded from the shipping package and
+contains the only debug actions used for deterministic lifecycle setup,
+settings bounds, UI capture, queued-return processing, and expiry checks. The
+shipping assembly contains no `DebugAction` methods.
+
+The fixture is not a Better Work Tab dependency and Better Work Tab was not
+loaded or run during verification.
 
 ## Future Expansion
 

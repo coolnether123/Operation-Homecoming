@@ -1,64 +1,57 @@
 using System.Collections.Generic;
-using System.Linq;
-using Verse;
 using RimWorld;
-using RimWorld.Planet;                // for Site
-using OperationHomecoming.Core;       // for KidnapCampSiteComp
+using Verse;
+using Verse.AI.Group;
 
 namespace OperationHomecoming.Core
 {
-    public class OHIncidentWorker_ReturnRaid : IncidentWorker
+    public class OHIncidentWorker_ReturnRaid : IncidentWorker_RaidEnemy
     {
         protected override bool TryExecuteWorker(IncidentParms parms)
         {
-            // 1) Ensure the target is a Map
-            if (!(parms.target is Map map))
-                return false;
-
-            // 2) Get the world‐object (Site) that spawned this map
-            var site = map.Parent as Site;
-            if (site == null)
-                return false;
-
-            // 3) Fetch your camp component from the Site
-            var campComp = site.GetComponent<KidnapCampSiteComp>();
-            if (campComp == null || campComp.CaptivePawn == null)
-                return false;
-
-            // 4) We now have the captive pawn
-            Pawn captive = campComp.CaptivePawn;
-
-            // 5) Rough ’em up: add a bruise
-            var bruiseDef = HediffDef.Named("Bruise");
-            captive.health.AddHediff(bruiseDef);
-
-            // 6) Equip basic clothes if missing
-            var apparelDefs = new[]
+            Pawn captive = Find.World.GetComponent<WorldComponent_OperationHomecoming>()
+                ?.TakePendingReturnRaidPawn();
+            if (captive == null || parms.target is not Map map)
             {
-                ThingDef.Named("Pants"),
-                ThingDef.Named("Shirt"),
-                ThingDef.Named("Jacket")
-            };
-            foreach (var def in apparelDefs)
-            {
-                if (!captive.apparel.WornApparel.Any(a => a.def == def))
-                {
-                    var piece = (Apparel)ThingMaker.MakeThing(def);
-                    GenSpawn.Spawn(piece, captive.Position, map);
-                    captive.apparel.Wear(piece);
-                }
+                return false;
             }
 
-            // 7) Build new raid parms and launch
-            var raidParms = new IncidentParms
+            if (captive.Spawned)
             {
-                target = map,
-                faction = parms.faction,
-                points = parms.points * 0.75f,
-                raidStrategy = RaidStrategyDefOf.ImmediateAttack,
-                raidArrivalMode = PawnsArrivalModeDefOf.EdgeWalkIn
-            };
-            return new IncidentWorker_RaidEnemy().TryExecute(raidParms);
+                captive.DeSpawn();
+            }
+
+            if (captive.Faction != parms.faction)
+            {
+                captive.SetFaction(parms.faction);
+            }
+            captive.guest?.SetGuestStatus(null);
+
+            bool raidStarted = base.TryExecuteWorker(parms);
+            if (!raidStarted)
+            {
+                return false;
+            }
+
+            if (!CellFinder.TryFindRandomEdgeCellWith(
+                c => c.Standable(map), map, CellFinder.EdgeRoadChance_Ignore, out IntVec3 edgeCell))
+            {
+                edgeCell = map.Center;
+            }
+
+            GenSpawn.Spawn(captive, edgeCell, map);
+            LordMaker.MakeNewLord(
+                parms.faction,
+                new LordJob_AssaultColony(parms.faction),
+                map,
+                new List<Pawn> { captive });
+
+            Find.LetterStack.ReceiveLetter(
+                "OH_ReturnRaidLabel".Translate(captive.LabelShort, parms.faction?.Name ?? "raiders"),
+                "OH_ReturnRaidText".Translate(captive.LabelShort, parms.faction?.Name ?? "raiders"),
+                LetterDefOf.ThreatBig,
+                captive);
+            return true;
         }
     }
 }

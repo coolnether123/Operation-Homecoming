@@ -12,6 +12,14 @@ using Verse;
 
 namespace OperationHomecoming.Core
 {
+    public class WorldObjectCompProperties_KidnapCamp : WorldObjectCompProperties
+    {
+        public WorldObjectCompProperties_KidnapCamp()
+        {
+            compClass = typeof(KidnapCampSiteComp);
+        }
+    }
+
     public class KidnapCampSiteComp : WorldObjectComp
     {
         private Pawn captivePawn;
@@ -20,15 +28,24 @@ namespace OperationHomecoming.Core
         private int creationTick;
         private bool isReinforced = false;
         private string contactFlavor;
+        private Quest rescueQuest;
+        private bool expiryHandled;
 
         public Pawn CaptivePawn => captivePawn;
         public int LayoutSeed => layoutSeed;
         public List<Pawn> GuardRoster => guardRoster;
         public bool IsReinforced => isReinforced;
         public string ContactFlavor => contactFlavor;
+        public Quest RescueQuest => rescueQuest;
 
         public void Initialize(Pawn pawn, string flavor = null)
         {
+            if (captivePawn == pawn && guardRoster.Count > 0)
+            {
+                contactFlavor = flavor ?? contactFlavor ?? "default";
+                return;
+            }
+
             captivePawn = pawn;
             contactFlavor = flavor ?? "default";
             layoutSeed = Rand.Int;
@@ -37,6 +54,11 @@ namespace OperationHomecoming.Core
             GenerateGuardRoster();
 
             Log.Message($"[OpHomecoming] Initialized kidnap camp for {pawn.LabelShort} with {guardRoster.Count} guards");
+        }
+
+        public void AttachQuest(Quest quest)
+        {
+            rescueQuest = quest;
         }
 
         private void GenerateGuardRoster()
@@ -106,9 +128,9 @@ namespace OperationHomecoming.Core
                         {
                             // Try to find a leader-type pawn
                             var leaders = new List<PawnGenOption>();
-                            foreach (var option in options)
+                            foreach (var option in options.Where(o => o != null && o.kind != null))
                             {
-                                var label = option.kind.labelPlural.ToLower();
+                                var label = (option.kind.labelPlural ?? option.kind.label ?? string.Empty).ToLower();
                                 if (label.Contains("leader") || label.Contains("boss") || label.Contains("chief"))
                                 {
                                     leaders.Add(option);
@@ -116,11 +138,21 @@ namespace OperationHomecoming.Core
                             }
                             if (leaders.Count > 0)
                             {
-                                return leaders.RandomElementByWeight(o => o.selectionWeight).kind;
+                                var weightedLeaders = leaders.Where(o => o.selectionWeight > 0f).ToList();
+                                return (weightedLeaders.Count > 0
+                                    ? weightedLeaders.RandomElementByWeight(o => o.selectionWeight)
+                                    : leaders[0]).kind;
                             }
                         }
 
-                        return options.RandomElementByWeight(o => o.selectionWeight).kind;
+                        var validOptions = options.Where(o => o != null && o.kind != null).ToList();
+                        if (validOptions.Count > 0)
+                        {
+                            var weightedOptions = validOptions.Where(o => o.selectionWeight > 0f).ToList();
+                            return (weightedOptions.Count > 0
+                                ? weightedOptions.RandomElementByWeight(o => o.selectionWeight)
+                                : validOptions[0]).kind;
+                        }
                     }
                 }
             }
@@ -204,10 +236,20 @@ namespace OperationHomecoming.Core
             var settings = OperationHomecomingMod.Settings;
             int daysSinceCreation = (Find.TickManager.TicksGame - creationTick) / GenDate.TicksPerDay;
 
-            if (daysSinceCreation >= settings.rescueWindowDays)
+            if (!expiryHandled && daysSinceCreation >= settings.rescueWindowDays)
             {
+                expiryHandled = true;
                 // Quest expired - trigger failure
                 HandleQuestExpiry();
+            }
+
+            Site site = parent as Site;
+            if (rescueQuest != null && rescueQuest.State == QuestState.Ongoing &&
+                site?.HasMap == true && captivePawn != null &&
+                guardRoster.Count > 0 &&
+                guardRoster.All(guard => guard == null || guard.Destroyed || guard.Dead))
+            {
+                rescueQuest.End(QuestEndOutcome.Success);
             }
         }
 
@@ -215,20 +257,12 @@ namespace OperationHomecoming.Core
         {
             Log.Message($"[OpHomecoming] Kidnap camp quest expired for {captivePawn?.LabelShort}");
 
-            // Find and fail the associated quest
-            Quest quest = null;
-            foreach (var q in Find.QuestManager.QuestsListForReading)
-            {
-                if (q.root?.defName == "OH_RescueCaptive" && q.State == QuestState.Ongoing)
-                {
-                    quest = q;
-                    break;
-                }
-            }
+            Find.World.GetComponent<WorldComponent_OperationHomecoming>()
+                ?.TryResolve(captivePawn, HomecomingLifecycleStage.Expired);
 
-            if (quest != null)
+            if (rescueQuest != null && rescueQuest.State == QuestState.Ongoing)
             {
-                quest.End(QuestEndOutcome.Fail);
+                rescueQuest.End(QuestEndOutcome.Fail);
             }
         }
 
@@ -237,14 +271,25 @@ namespace OperationHomecoming.Core
             base.PostExposeData();
             Scribe_References.Look(ref captivePawn, "captivePawn");
             Scribe_Values.Look(ref layoutSeed, "layoutSeed");
-            Scribe_Collections.Look(ref guardRoster, "guardRoster", LookMode.Reference);
             Scribe_Values.Look(ref creationTick, "creationTick");
             Scribe_Values.Look(ref isReinforced, "isReinforced");
             Scribe_Values.Look(ref contactFlavor, "contactFlavor");
+            Scribe_References.Look(ref rescueQuest, "rescueQuest");
+            Scribe_Values.Look(ref expiryHandled, "expiryHandled");
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                guardRoster?.RemoveAll(g => g == null);
+                guardRoster.Clear();
+                Site site = parent as Site;
+                if (site?.Map != null)
+                {
+                    guardRoster.AddRange(site.Map.mapPawns.AllPawnsSpawned
+                        .Where(p => p != captivePawn && p.Faction != null && p.Faction != Faction.OfPlayer));
+                }
+                else if (captivePawn != null)
+                {
+                    GenerateGuardRoster();
+                }
             }
         }
 

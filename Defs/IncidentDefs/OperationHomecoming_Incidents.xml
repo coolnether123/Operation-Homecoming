@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+  <IncidentDef>
+    <defName>OH_ContactSuccess</defName>
+    <label>contact succeeds</label>
+    <category>Misc</category>
+    <targetTags>
+      <li>Map_PlayerHome</li>
+    </targetTags>
+    <workerClass>OperationHomecoming.Core.IncidentWorker_ContactSuccess</workerClass>
+    <baseChance>0</baseChance>
+  </IncidentDef>
+
+  <IncidentDef>
+    <defName>OH_ContactFailed</defName>
+    <label>contact fails</label>
+    <category>Misc</category>
+    <targetTags>
+      <li>Map_PlayerHome</li>
+    </targetTags>
+    <workerClass>OperationHomecoming.Core.IncidentWorker_ContactFailed</workerClass>
+    <baseChance>0</baseChance>
+  </IncidentDef>
+
+  <IncidentDef>
+    <defName>OH_RumorLetter</defName>
+    <label>rumor about missing pawn</label>
+    <category>Misc</category>
+    <targetTags>
+      <li>Map_PlayerHome</li>
+    </targetTags>
+    <workerClass>OperationHomecoming.Core.IncidentWorker_RumorLetter</workerClass>
+    <baseChance>0</baseChance>
+  </IncidentDef>
+
+  <IncidentDef>
+    <defName>OH_KidnapContact</defName>
+    <label>kidnap contact</label>
+    <category>Misc</category>
+    <targetTags>
+      <li>Map_PlayerHome</li>
+    </targetTags>
+    <workerClass>OperationHomecoming.Core.IncidentWorker_KidnapContact</workerClass>
+    <baseChance>0</baseChance>
+  </IncidentDef>
+
+  <IncidentDef>
+    <defName>OH_ReturnRaid</defName>
+    <label>returned captive raid</label>
+    <category>ThreatBig</category>
+    <targetTags>
+      <li>Map_PlayerHome</li>
+    </targetTags>
+    <workerClass>OperationHomecoming.Core.OHIncidentWorker_ReturnRaid</workerClass>
+    <baseChance>0</baseChance>
+    <pointsScaleable>true</pointsScaleable>
+  </IncidentDef>
+</Defs>

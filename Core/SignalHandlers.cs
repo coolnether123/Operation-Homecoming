@@ -15,19 +15,22 @@ namespace OperationHomecoming.Core
         private static SignalAction_ContactSuccess contactSuccessHandler;
         private static SignalAction_ContactFailed contactFailedHandler;
         private static bool initialized = false;
+        private static object registeredSignalManager;
 
         public static bool IsInitialized => initialized;
 
         public static void Initialize()
         {
-            if (initialized) return;
-
             // Check if the game is in a state where we can safely register signals
             if (Current.Game == null || Find.SignalManager == null)
             {
                 Log.Warning("[OpHomecoming] Cannot initialize signal handlers - game not ready");
                 return;
             }
+
+            // A save/reload replaces the SignalManager. Static state survives the
+            // reload, so registration must be repeated for the new manager.
+            if (initialized && object.ReferenceEquals(registeredSignalManager, Find.SignalManager)) return;
 
             try
             {
@@ -37,6 +40,7 @@ namespace OperationHomecoming.Core
                 Find.SignalManager.RegisterReceiver(contactSuccessHandler);
                 Find.SignalManager.RegisterReceiver(contactFailedHandler);
 
+                registeredSignalManager = Find.SignalManager;
                 initialized = true;
                 Log.Message("[OpHomecoming] Signal handlers registered successfully.");
             }
@@ -66,12 +70,10 @@ namespace OperationHomecoming.Core
         {
             Log.Message($"[OpHomecoming] Handling contact success for {captivePawn.LabelShort}");
 
-            var settings = OperationHomecomingMod.Settings;
-
             // Determine contact flavor based on highest skill
             string contactFlavor = DetermineContactFlavor(captivePawn);
 
-            // For now, always create rescue quest since we don't have prison break implemented yet
+            Find.World.GetComponent<WorldComponent_OperationHomecoming>()?.RegisterContact(captivePawn);
             OHQuestUtility.CreateRescueQuest(captivePawn, contactFlavor);
 
             // Send contact success letter with flavor
@@ -143,8 +145,6 @@ namespace OperationHomecoming.Core
         {
             Log.Message($"[OpHomecoming] Handling contact failure for {captivePawn.LabelShort}, attempt #{attemptIndex}");
 
-            var settings = OperationHomecomingMod.Settings;
-
             // Every third failure, spawn investigation site
             if (attemptIndex % 3 == 0)
             {
@@ -165,101 +165,6 @@ namespace OperationHomecoming.Core
 
             var worldComp = Find.World.GetComponent<WorldComponent_OperationHomecoming>();
             worldComp?.ScheduleRumorLetter(captivePawn, delayTicks);
-        }
-    }
-}
-
-// World component to handle delayed events
-namespace OperationHomecoming.Core
-{
-    public partial class WorldComponent_OperationHomecoming : WorldComponent
-    {
-        // We need this constructor so RimWorld can instantiate our component:
-        public WorldComponent_OperationHomecoming(World world) : base(world)
-        {
-            // ensure our list is non-null even if loaded from an empty save
-            if (scheduledRumors == null)
-                scheduledRumors = new List<ScheduledRumor>();
-        }
-
-        // The list of all pending rumor‐letters, scheduled to go out at triggerTick
-        private List<ScheduledRumor> scheduledRumors = new List<ScheduledRumor>();
-
-        public override void WorldComponentTick()
-        {
-            base.WorldComponentTick();
-
-            // Iterate backwards so we can remove from the list
-            for (int i = scheduledRumors.Count - 1; i >= 0; i--)
-            {
-                var rumor = scheduledRumors[i];
-                if (Find.TickManager.TicksGame >= rumor.triggerTick)
-                {
-                    SendRumorLetter(rumor.pawn);
-                    scheduledRumors.RemoveAt(i);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Schedule a rumor‐letter for <paramref name="pawn"/> after <paramref name="delayTicks"/>.
-        /// </summary>
-        public void ScheduleRumorLetter(Pawn pawn, int delayTicks)
-        {
-            if (pawn == null) return;
-            scheduledRumors.Add(new ScheduledRumor
-            {
-                pawn = pawn,
-                triggerTick = Find.TickManager.TicksGame + delayTicks
-            });
-        }
-
-        private void SendRumorLetter(Pawn pawn)
-        {
-            // Pick one of your rumor defs at random
-            var keys = new[]
-            {
-                "OH_Rumor_Sighting",
-                "OH_Rumor_Trader",
-                "OH_Rumor_Escape",
-                "OH_Rumor_Condition"
-            };
-            string defKey = keys.RandomElement();
-            string text = defKey.Translate(pawn.LabelShort);
-
-            Find.LetterStack.ReceiveLetter(
-                "OH_RumorLabel".Translate(),  // your label def
-                text,
-                LetterDefOf.NeutralEvent,
-                pawn
-            );
-        }
-
-        public override void ExposeData()
-        {
-            base.ExposeData();
-
-            // Save/load our scheduled list
-            Scribe_Collections.Look(ref scheduledRumors, "scheduledRumors", LookMode.Deep);
-
-            if (Scribe.mode == LoadSaveMode.PostLoadInit)
-            {
-                // Trim out any null pawns (e.g. deleted by other mods)
-                scheduledRumors.RemoveAll(r => r.pawn == null);
-            }
-        }
-
-        // Helper class so Scribe can deep‐save pawn + tick
-        private class ScheduledRumor : IExposable
-        {
-            public Pawn pawn;
-            public int triggerTick;
-
-            public void ExposeData()
-            {
-                Scribe_References.Look(ref pawn, "pawn");
-                Scribe_Values.Look(ref triggerTick, "triggerTick");
-            }
         }
     }
 }

@@ -40,6 +40,12 @@ namespace OperationHomecoming.Core
             Scribe_Values.Look(ref contactAttemptDelayMaxDays, "contactAttemptDelayMaxDays", 7);
             Scribe_Values.Look(ref attemptIntervalDays, "attemptIntervalDays", 5);
 
+            // Keep persisted settings valid even when an older or hand-edited
+            // config contains an inverted first-contact range.
+            contactAttemptDelayMinDays = Mathf.Clamp(contactAttemptDelayMinDays, 1, 10);
+            contactAttemptDelayMaxDays = Mathf.Clamp(contactAttemptDelayMaxDays, contactAttemptDelayMinDays, 20);
+            attemptIntervalDays = Mathf.Clamp(attemptIntervalDays, 2, 14);
+
             Scribe_Values.Look(ref baseSuccessPercent, "baseSuccessPercent", 30);
             Scribe_Values.Look(ref perSkillIncrementPer4pts, "perSkillIncrementPer4pts", 10);
             Scribe_Values.Look(ref maxSuccessPercent, "maxSuccessPercent", 80);
@@ -66,7 +72,7 @@ namespace OperationHomecoming.Core
             contactAttemptDelayMinDays = (int)listing.Slider(contactAttemptDelayMinDays, 1, 10);
 
             listing.Label("OH_Settings_ContactDelayMax".Translate() + ": " + contactAttemptDelayMaxDays + " " + "DaysLower".Translate());
-            contactAttemptDelayMaxDays = (int)listing.Slider(contactAttemptDelayMaxDays, 3, 20);
+            contactAttemptDelayMaxDays = (int)listing.Slider(contactAttemptDelayMaxDays, contactAttemptDelayMinDays, 20);
 
             listing.Label("OH_Settings_AttemptInterval".Translate() + ": " + attemptIntervalDays + " " + "DaysLower".Translate());
             attemptIntervalDays = (int)listing.Slider(attemptIntervalDays, 2, 14);

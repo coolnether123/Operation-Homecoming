@@ -102,7 +102,7 @@ namespace OperationHomecoming.Core
                     {
                         if (Rand.Chance(0.8f)) // Some gaps for realism
                         {
-                            GenSpawn.Spawn(ThingDefOf.Wall, cell, map);
+                            SpawnWall(map, cell);
                         }
                     }
                     // Clear interior
@@ -177,7 +177,7 @@ namespace OperationHomecoming.Core
                             // Walls, but leave one opening
                             if (!(x == 0 && z == -1)) // Leave south side open
                             {
-                                GenSpawn.Spawn(ThingDefOf.Wall, cell, map);
+                                SpawnWall(map, cell);
                             }
                         }
                     }
@@ -200,15 +200,27 @@ namespace OperationHomecoming.Core
             }
         }
 
+        private static void SpawnWall(Map map, IntVec3 cell)
+        {
+            Thing wall = ThingMaker.MakeThing(ThingDefOf.Wall, GenStuff.DefaultStuffFor(ThingDefOf.Wall));
+            GenSpawn.Spawn(wall, cell, map);
+        }
+
         private void SpawnCaptive(Map map, IntVec3 center, KidnapCampSiteComp comp)
         {
             var prisonCell = center + IntVec3.East * 4;
             if (prisonCell.InBounds(map) && prisonCell.Standable(map))
             {
+                if (comp.CaptivePawn.Spawned)
+                {
+                    comp.CaptivePawn.DeSpawn();
+                }
+
                 GenSpawn.Spawn(comp.CaptivePawn, prisonCell, map);
 
-                // Make them a prisoner
-                comp.CaptivePawn.guest.SetGuestStatus(Faction.OfPlayer, GuestStatus.Prisoner);
+                // The captive already carries the captor's prisoner state.
+                // Rehosting here would erase the kidnapping boundary before
+                // the rescue is played.
             }
         }
 

@@ -20,6 +20,7 @@ namespace OperationHomecoming.Core
 
         private int nextAttemptTick = -1;
         private int attemptIndex = 0;
+        private bool contactResolved;
         private int daysCaptured = 0;
         private SkillDef highestSkillCache;
         private int highestSkillLevelCache = 0;
@@ -38,7 +39,7 @@ namespace OperationHomecoming.Core
             var pawn = parent as Pawn;
             if (pawn == null) return;
 
-            if (!respawningAfterLoad && pawn.IsKidnapped())
+            if (!respawningAfterLoad && pawn.IsKidnapped() && !contactResolved)
             {
                 InitializeTracking();
             }
@@ -50,7 +51,7 @@ namespace OperationHomecoming.Core
             if (pawn == null) return;
 
             // Check if pawn just became kidnapped
-            if (pawn.IsKidnapped() && !hasBeenKidnapped)
+            if (pawn.IsKidnapped() && !hasBeenKidnapped && !contactResolved)
             {
                 InitializeTracking();
                 return;
@@ -60,13 +61,14 @@ namespace OperationHomecoming.Core
             if (!pawn.IsKidnapped())
             {
                 hasBeenKidnapped = false;
+                contactResolved = false;
                 return;
             }
 
             // Continue tracking if kidnapped
             if (hasBeenKidnapped)
             {
-                // Check for contact attempts every tick, not just daily
+                // Check for contact attempts every tick instead of once per day.
                 if (Find.TickManager.TicksGame >= nextAttemptTick)
                 {
                     RollContact(pawn);
@@ -84,10 +86,13 @@ namespace OperationHomecoming.Core
         private void InitializeTracking()
         {
             hasBeenKidnapped = true;
+            contactResolved = false;
             daysCaptured = 0;
             attemptIndex = 0;
             CacheHighestSkill();
             ScheduleNextAttempt();
+
+            Find.World.GetComponent<WorldComponent_OperationHomecoming>()?.RegisterKidnapped(parent as Pawn);
 
             Log.Message($"[OpHomecoming] Started tracking {parent.LabelShort} - highest skill: {highestSkillCache?.label} ({highestSkillLevelCache})");
         }
@@ -100,8 +105,8 @@ namespace OperationHomecoming.Core
             if (attemptIndex == 0)
             {
                 // First attempt uses initial delay range
-                int minDays = settings?.contactAttemptDelayMinDays ?? 3;
-                int maxDays = settings?.contactAttemptDelayMaxDays ?? 7;
+                int minDays = Mathf.Clamp(settings?.contactAttemptDelayMinDays ?? 3, 1, 10);
+                int maxDays = Mathf.Clamp(settings?.contactAttemptDelayMaxDays ?? 7, minDays, 20);
                 delayDays = Rand.RangeInclusive(minDays, maxDays);
             }
             else
@@ -143,6 +148,12 @@ namespace OperationHomecoming.Core
             if (Rand.Chance(successChance / 100f))
             {
                 // Success - emit signal for quest creation
+                // Contact is a one-way lifecycle transition. The pawn remains
+                // kidnapped until the rescue/return path resolves it, but it
+                // must not emit duplicate contact successes while that quest
+                // is active.
+                hasBeenKidnapped = false;
+                contactResolved = true;
                 Find.SignalManager.SendSignal(new Signal("Signal_ContactSuccess", pawn.Named("PAWN")));
                 Log.Message($"[OpHomecoming] Contact successful for {pawn.LabelShort}!");
             }
@@ -180,6 +191,7 @@ namespace OperationHomecoming.Core
             Scribe_Values.Look(ref attemptIndex, "attemptIndex", 0);
             Scribe_Values.Look(ref daysCaptured, "daysCaptured", 0);
             Scribe_Values.Look(ref hasBeenKidnapped, "hasBeenKidnapped", false);
+            Scribe_Values.Look(ref contactResolved, "contactResolved", false);
             Scribe_Values.Look(ref highestSkillLevelCache, "highestSkillLevelCache", 0);
             Scribe_Defs.Look(ref highestSkillCache, "highestSkillCache");
         }
