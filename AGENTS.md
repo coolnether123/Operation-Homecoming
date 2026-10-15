@@ -1,6 +1,6 @@
 # Operation Homecoming Agent Guide
 
-Also follow `A:\Dev\RimWorld\AGENTS.md`.
+Also follow `H:\Dev\RimWorld\AGENTS.md`.
 
 This is a legacy development repository. Determine its actual version and
 package maturity from the project, definitions, README, and metadata present at
